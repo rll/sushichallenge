@@ -1,0 +1,9 @@
+<stack>
+  <description brief="sushi_challenge">sushi challenge</description>
+  <author>Maintained by UC Berkeley</author>
+  <license></license>  
+  <review status="unreviewed" notes=""/>
+  <url>https://github.com/rll/sushichallenge</url>
+  <depend stack="ros sushi" />
+
+</stack>
