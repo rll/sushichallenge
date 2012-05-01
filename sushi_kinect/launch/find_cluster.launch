@@ -1,0 +1,10 @@
+<launch>
+  <node name="find_cluster" pkg="sushi_kinect" type="find_cluster">
+	<remap from="image_in" to="/camera/rgb/image_color"/>
+	<!--remap from="cloud_in" to="/camera/depth_registered/points"/--> 
+	<remap from="cloud_in" to="/bolt/vision/voxelize"/>
+ </node>
+  <node name="image_view" pkg="image_view" type="image_view">
+	<remap from="image" to="/bolt/vision/image"/>
+  </node>
+</launch>
