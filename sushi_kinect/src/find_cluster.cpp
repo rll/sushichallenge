@@ -41,15 +41,9 @@ class FindCluster
   ros::NodeHandle pt_;
   ros::NodeHandle cp;
 
-//  ros::NodeHandle private_node_handle_A;
-//  ros::NodeHandle private_node_handle_B;
-//  ros::NodeHandle private_node_handle_C;
   ros::NodeHandle private_node_handle_D;
   ros::NodeHandle private_node_handle_X;
 
-//  double paramA;
-//  double paramB;
-//  double paramC;
   double paramD;    
   double paramX;    
 
@@ -58,6 +52,8 @@ class FindCluster
   bool initialRun;
 
   ros::Subscriber cloud_sub;
+  ros::Publisher cloud_pub;
+
   ros::Subscriber capture_sub;
 
   image_transport::ImageTransport it_;
@@ -109,7 +105,7 @@ public:
     image_sub_ = it_.subscribe("image_in", 1, &FindCluster::imageSCb, this);
     image_pub_ = it_.advertise("/bolt/vision/image", 1);
     
-    cloud_percept = n.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_percept", 10);
+    cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
     //pose_array = pa.advertise<geometry_msgs::PoseArray>("/bolt/vision/pose_array", 10);
 
 
@@ -635,6 +631,10 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
 //---------------------------------------------------------------B
 
+    sensor_msgs::PointCloud2 publishedCluster;
+    pcl::PointCloud<pcl::PointXYZ> publishClusterXYZ;
+    pcl::PointXYZ helpPoint;
+
     geometry_msgs::Vector3 bestCluster;
 	int maxClusterSize = 0;
 	int maxClusterID = 0;
@@ -647,14 +647,20 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 			maxClusterID = i;
 			maxClusterSize = clusterSet.at(i).points.size();		
 		}
-	//	poseArray.poses[i].position.x = clusterSet.at(i).center.x;
-	//	poseArray.poses[i].position.y = clusterSet.at(i).center.y;
-	//	poseArray.poses[i].position.z = clusterSet.at(i).center.z;
 	}
 	bestCluster.x = clusterSet.at(maxClusterID).center.x;
 	bestCluster.y = clusterSet.at(maxClusterID).center.y;
 	bestCluster.z = clusterSet.at(maxClusterID).center.z;
-	
+
+	for (size_t j = 0; j < clusterSet.at(maxClusterID).points.size(); j++) {
+		helpPoint.x = clusterSet.at(maxClusterID).points.at(j).x;
+		helpPoint.y = clusterSet.at(maxClusterID).points.at(j).y;
+		helpPoint.z = clusterSet.at(maxClusterID).points.at(j).z;
+
+		
+		publishClusterXYZ.push_back(helpPoint);
+
+	}
     } else {
 	bestCluster.x = bestCluster.y = 0; bestCluster.z = 1;
     }
@@ -669,8 +675,13 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
     initialRun = false;
 
-    cloud_percept.publish(bestCluster);
-    
+    //cloud_percept.publish(bestCluster);
+
+
+
+
+    cloud_percept.publish(publishedCluster); // is still empty
+
 
 
     lastClusterSet = clusterSet;
