@@ -678,8 +678,9 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
     //cloud_percept.publish(bestCluster);
 
 
+//    pcl::fromROSMsg (*input, cff);
 
-
+    pcl::toROSMsg(publishClusterXYZ, publishedCluster);
     cloud_percept.publish(publishedCluster); // is still empty
 
 
