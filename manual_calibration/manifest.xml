@@ -1,0 +1,14 @@
+<package>
+  <description brief="manual_calibration">
+
+     manual_calibration
+
+  </description>
+  <author>John Schulman</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/manual_calibration</url>
+
+</package>
+
+
