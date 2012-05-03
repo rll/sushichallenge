@@ -1,0 +1,13 @@
+<launch>
+
+  <include file="$(find sushi_executive)/launch/common.launch">
+    <arg name="stereo" value="true"/>
+  </include>
+  <include file="$(find sushi_executive)/launch/interactive_manip.launch">
+     <arg name="stereo" value="true"/>
+  </include>
+  <include file="$(find pr2_gazebo)/pr2_empty_world.launch" />
+  <include file="$(find sushi_executive)/launch/rviz_sushi_interactive.launch">
+    <arg name="stereo" value="true"/>
+  </include>
+</launch>

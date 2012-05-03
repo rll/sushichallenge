@@ -1,0 +1,9 @@
+<launch>
+
+  <include file="$(find sushi_executive)/launch/common.launch">
+    <arg name="stereo" value="true"/>
+  </include>
+  <include file="$(find pr2_gazebo)/pr2_empty_world.launch" />
+  <node pkg="rviz" name="rviz" type="rviz" args="-d $(find sushi_executive)/config/sushi.vcg" />
+  
+</launch>
