@@ -61,7 +61,11 @@ class FindCluster
   image_transport::Publisher image_pub_;
 
   ros::NodeHandle n;
-  ros::Publisher cloud_percept; 
+  ros::NodeHandle n2;
+  ros::Publisher cloud_percept;
+  ros::Publisher cloud_vector;
+
+
   //ros::NodeHandle pa;
   //ros::Publisher pose_array; 
 
@@ -80,9 +84,8 @@ class FindCluster
 
   //Store point cloud data
   sensor_msgs::PointCloud2 cloud_filtered;
-  pcl::PointCloud<pcl::PointXYZ> cff;
-  //pcl::PointCloud<pcl::PointXYZRGB> cloud_xyzrgb;
-
+  pcl::PointCloud<pcl::PointXYZRGB> cloudRGB;
+  
   pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
 
   int cycleCountPcl;
@@ -106,7 +109,9 @@ public:
     image_pub_ = it_.advertise("/bolt/vision/image", 1);
     
     cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
-    //pose_array = pa.advertise<geometry_msgs::PoseArray>("/bolt/vision/pose_array", 10);
+    cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
+        
+//pose_array = pa.advertise<geometry_msgs::PoseArray>("/bolt/vision/pose_array", 10);
 
 
     cycleCountPcl = 0;
@@ -128,7 +133,7 @@ public:
 
 
 
-  void reducePointCloudByDistanceAndHeight(pcl::PointCloud<pcl::PointXYZ>& cloud, double distanceBoundary, double heightBoundary) {
+  void reducePointCloudByDistanceAndHeight(pcl::PointCloud<pcl::PointXYZRGB>& cloud, double distanceBoundary, double heightBoundary) {
 
 				
 		size_t i = 0;
@@ -158,32 +163,6 @@ void captureThis(std_msgs::String msg) {
 }
 
 
-/********************************************************************/
-
-  void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
-  {
-    if (cycleCountPcl%100 == 0)	
-	std::cerr << " new pcl data received " << std::endl;
-
- //   sensor_msgs::PointCloud2 reducedCloud;
- //   sensor_msgs::PointCloud2Ptr reducedCloudPtr;
-
-//    pcl::fromROSMsg (*input, cff);
-
-
-
- //   pcl::toROSMsg (oldFormatCloud, reducedCloud);
- //   *reducedCloudPtr = reducedCloud;
-
-
-
-//---- Voxelization
-	  sor.setInputCloud (input);
-	  sor.setLeafSize (VoxelizeLeafSize, VoxelizeLeafSize, VoxelizeLeafSize);
-	  sor.filter (cloud_filtered);
-	  cycleCountPcl++;
-
-  }
 
 /********************************************************************/
 
@@ -429,6 +408,21 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
 
 
+/********************************************************************/
+
+  void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
+  {
+    if (cycleCountPcl%100 == 0)	
+	std::cerr << " new pcl data received " << std::endl;
+
+	  sor.setInputCloud (input);
+	  sor.setLeafSize (VoxelizeLeafSize, VoxelizeLeafSize, VoxelizeLeafSize);
+	  sor.filter (cloud_filtered);
+
+          pcl::fromROSMsg (cloud_filtered, cloudRGB);
+	  cycleCountPcl++;
+
+  }
 
 
 /********************************************************************/
@@ -462,7 +456,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 	}	//else
 
 
-	    pcl::fromROSMsg (cloud_filtered, cff);
+	    pcl::fromROSMsg (cloud_filtered, cloudRGB);
 
 	//copyPointCloud(cloud_xyz, cloud_xyzrgb);
 
@@ -471,7 +465,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 	  pcl::ModelCoefficients coefficients;
 	  pcl::PointIndices inliers;
 	  // Create the segmentation object
-	  pcl::SACSegmentation<pcl::PointXYZ> seg;
+	  pcl::SACSegmentation<pcl::PointXYZRGB> seg;
 	  // Optional
 	  seg.setOptimizeCoefficients (true);
 	  // Mandatory
@@ -479,92 +473,56 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 	  seg.setMethodType (pcl::SAC_RANSAC);
 	  seg.setDistanceThreshold (0.01); //0.01
 
-	  seg.setInputCloud (cff.makeShared ());
-
-//	   private_node_handle_A.param<double>("/bolt/vision/plane_Param_A", paramA, 0.0);
-//	   private_node_handle_B.param<double>("/bolt/vision/plane_Param_B", paramB, 1.0);
-//	   private_node_handle_C.param<double>("/bolt/vision/plane_Param_C", paramC, 0.0);
-	   private_node_handle_D.param<double>("/bolt/vision/plane_Param_D", paramD, 0.0);
-	   private_node_handle_X.param<double>("/bolt/vision/plane_Param_X", paramX, 0.0);
+	  seg.setInputCloud (cloudRGB.makeShared ());
 
 
+	  seg.segment (inliers, coefficients);
 
-	  if (doRANSAC) {
-			  seg.segment (inliers, coefficients);
+	if (coefficients.values.size() > 3) {
 			  coeffManual[0] = coefficients.values.at(0);
 	  		  coeffManual[1] = coefficients.values.at(1);
 	  		  coeffManual[2] = coefficients.values.at(2);
 	  		  coeffManual[3] = coefficients.values.at(3);
-		if (!initialRun) {
-			if (!(fabs(coeffManual[1]) > 0.75)) {
-				coeffManual[0] = oldManual[0];
-				coeffManual[1] = oldManual[1];
-				coeffManual[2] = oldManual[2];
-				coeffManual[3] = oldManual[3];
-			} else {
-			  oldManual[0] = coeffManual[0];
-			  oldManual[1] = coeffManual[1];
-			  oldManual[2] = coeffManual[2];
-			  oldManual[3] = coeffManual[3];
-			}
-		}
+	}
 
 
-	  } else {
-//	  	coefficients.values.at(0) = paramA;
-//	  	coefficients.values.at(1) = paramB;
-//	  	coefficients.values.at(2) = paramC;
-	  	coeffManual[0] = 0.0;
-	  	coeffManual[1] = cos(paramX / 180.0 * 3.141593);
-	  	coeffManual[2] = sin(paramX / 180.0 * 3.141593);
-	  	coeffManual[3] = paramD;
-		//cerr << " A: " << coefficients.values.at(0) << " B: " << coefficients.values.at(1) << " C: " << coefficients.values.at(2) << " D: " << coefficients.values.at(3) << std::endl; 
-	  }
 
-
-          reducePointCloudByDistanceAndHeight(cff, 1.5, 0.5);
+          reducePointCloudByDistanceAndHeight(cloudRGB, 1.5, 0.5);
 	
 	ColoredPoint rgbdPixel;
 	ColoredPoint planeRgbdPixel;
 	cv::Vec3b pixelColorVector;
 
-	for (size_t i = 0; i < cff.points.size (); i++)
+	for (size_t i = 0; i < cloudRGB.points.size (); i++)
 	  {
 
 //ignore everything, matching the following criterion
-		double signedPointDistanceToSACPlane = signedPointPlaneDistance(cff.points[i].x, cff.points[i].y, cff.points[i].z, coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3]);
+		double signedPointDistanceToSACPlane = signedPointPlaneDistance(cloudRGB.points[i].x, cloudRGB.points[i].y, cloudRGB.points[i].z, coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3]);
 		
 
-		if (doRANSAC && (!((fabs(coeffManual[1]) > 0.75)))) {
+		if (true && (!((fabs(coeffManual[1]) > 0.75)))) {
 			break;	//ignore if table is not parallel to y,z plane 
 		}		//if points are on the table and cluster too - big --> paint it black
-		if (!((signedPointDistanceToSACPlane < minDistanceAbovePlane) || (cff.points[i].z > 1.5))) { // if points are on the table and a bit under - fill colorpointarray
-			rgbdPixel.x = cff.points[i].x;
-			rgbdPixel.y = cff.points[i].y;
-			rgbdPixel.z = cff.points[i].z;
+		if (!((signedPointDistanceToSACPlane < minDistanceAbovePlane) || (cloudRGB.points[i].z > 1.5))) { // if points are on the table and a bit under - fill colorpointarray
+			rgbdPixel.x = cloudRGB.points[i].x;
+			rgbdPixel.y = cloudRGB.points[i].y;
+			rgbdPixel.z = cloudRGB.points[i].z;
+			rgbdPixel.r = cloudRGB.points[i].r;
+			rgbdPixel.g = cloudRGB.points[i].g;
+			rgbdPixel.b = cloudRGB.points[i].b;
+
+	  	        rgbdPixelSet.push_back(rgbdPixel);
+
 		} else {
 			if (fabs(signedPointDistanceToSACPlane) < minDistanceAbovePlane) {
-				planeRgbdPixel.x = cff.points[i].x;
-				planeRgbdPixel.y = cff.points[i].y;
-				planeRgbdPixel.z = cff.points[i].z;
+				planeRgbdPixel.x = cloudRGB.points[i].x;
+				planeRgbdPixel.y = cloudRGB.points[i].y;
+				planeRgbdPixel.z = cloudRGB.points[i].z;
+			      planeRgbdPixel.r = cloudRGB.points[i].r;
+			      planeRgbdPixel.g = cloudRGB.points[i].g;
+			      planeRgbdPixel.b = cloudRGB.points[i].b;
 
-				int pix_x = 0;
-				int pix_y = 0;	     
-		
-			  	calculateImagePositionFrom3dPoint(cff.points[i].x, cff.points[i].y, cff.points[i].z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x, pix_y);
-		
-			      if ((pix_x >= 0) && (pix_x < cv_ptr->image.cols) && (pix_y >= 0) && (pix_y < cv_ptr->image.rows)) {
-			      cv::Point pointColorComponents(pix_x, pix_y);
-		
-			      pixelColorVector = cv_ptr->image.at<cv::Vec3b>(pointColorComponents);
-			      planeRgbdPixel.r = pixelColorVector[2];
-			      planeRgbdPixel.g = pixelColorVector[1];
-			      planeRgbdPixel.b = pixelColorVector[0];
-			      } else {
-				planeRgbdPixel.r = 0;
-  			        planeRgbdPixel.g = 0;
-			        planeRgbdPixel.b = 0;
-			      }
+ 
 	
 			      planeRgbdPixelSet.push_back(planeRgbdPixel);
 
@@ -572,25 +530,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 			continue;	//and if points not above the table 	
 		}
 		
-		int pix_x = 0;
-		int pix_y = 0;	     
-	
-	  	calculateImagePositionFrom3dPoint(cff.points[i].x, cff.points[i].y, cff.points[i].z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x, pix_y);
-	     if (isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_x, pix_y)) {
-		
-	      cv::Point pointColorComponents(pix_x, pix_y);
-		
-	      pixelColorVector = cv_ptr->image.at<cv::Vec3b>(pointColorComponents);
-	      rgbdPixel.r = pixelColorVector[2];
-	      rgbdPixel.g = pixelColorVector[1];
-	      rgbdPixel.b = pixelColorVector[0];
-	      } else {
-		planeRgbdPixel.r = 0;
-  	        planeRgbdPixel.g = 0;
-	        planeRgbdPixel.b = 0;
-	      }
-	
-	      rgbdPixelSet.push_back(rgbdPixel);
+
 
 
 	  } // for every Point in cff
@@ -632,8 +572,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 //---------------------------------------------------------------B
 
     sensor_msgs::PointCloud2 publishedCluster;
-    pcl::PointCloud<pcl::PointXYZ> publishClusterXYZ;
-    pcl::PointXYZ helpPoint;
+    pcl::PointCloud<pcl::PointXYZRGB> publishClusterXYZ;
+    pcl::PointXYZRGB helpPoint;
 
     geometry_msgs::Vector3 bestCluster;
 	int maxClusterSize = 0;
@@ -682,6 +622,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
     pcl::toROSMsg(publishClusterXYZ, publishedCluster);
     cloud_percept.publish(publishedCluster); // is still empty
+
+    cloud_vector.publish(bestCluster);
 
 
 
