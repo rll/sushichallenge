@@ -1,0 +1,23 @@
+<package>
+  <description brief="sushi_rll_executive">
+
+     sushi_rll_executive
+
+  </description>
+  <author>Ben Kehoe</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/sushi_rll_executive</url>
+  <depend package="rospy"/>
+  <depend package="household_objects_database"/>
+	<depend package="geometry_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="sbpl_3dnav_planner"/>
+  <depend package="pose_follower_3d"/>
+  <depend package="pr2_tasks"/>
+  <depend package="pr2_gripper_grasp_planner_cluster"/>
+  <depend package="state_transformer"/>
+
+</package>
+
+
