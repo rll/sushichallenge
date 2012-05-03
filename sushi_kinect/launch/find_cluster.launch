@@ -1,5 +1,5 @@
 <launch>
-  <node name="find_cluster" pkg="sushi_kinect" type="find_cluster" launch-prefix="gdb -ex run --args">
+  <node name="find_cluster" pkg="sushi_kinect" type="find_cluster">
 	<remap from="image_in" to="/camera/rgb/image_color"/>
 	<remap from="cloud_in" to="/bolt/vision/voxelize"/>
  </node>

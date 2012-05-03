@@ -1,3 +1,4 @@
+//  <!--node name="find_cluster" pkg="sushi_kinect" type="find_cluster" launch-prefix="gdb -ex run --args"  -->
 #include <iostream>
 #include <fstream>
 #include <time.h>
@@ -439,8 +440,10 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 	std::cerr << " new pcl data received " << std::endl;
 
 	  if (transformationWorked) {
+		cerr << " Transformation worked " << endl;
 		  sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
 	  } else {
+		cerr << " Transformation failed " << endl;
 		  sor.setInputCloud (input); //USED TO BE INPUT
 	  }
 
@@ -633,6 +636,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
  
     pcl::toROSMsg(publishClusterXYZ, publishedCluster);
     cloud_percept.publish(publishedCluster); // is still empty
+
+    cerr << " Best Cluster: X: " << bestCluster.x << " | Y: " << bestCluster.y << " | Z: " << bestCluster.z << endl;
 
     cloud_vector.publish(bestCluster);
 
