@@ -24,7 +24,7 @@
 
 #include <geometry_msgs/Vector3.h>
 #include "std_msgs/String.h"
-#include "ColoredPointCluster.h"
+#include "ColoredPointClusterxp.h"
 //#include <geometry_msgs/PoseArray.h>
 
 
@@ -48,8 +48,7 @@ class FindCluster
   double paramX;    
 
   double coeffManual[4];
-  double oldManual[4];
-  bool initialRun;
+
 
   ros::Subscriber cloud_sub;
   ros::Publisher cloud_pub;
@@ -78,7 +77,8 @@ class FindCluster
 
    static const double VoxelizeLeafSize = 0.02;
    static const double maxClusterLength = 0.4;
-   static const double minDistanceAbovePlane = -0.0125;
+   static const double minDistanceAbovePlane = 0.0125;
+   static const double minDistanceUnderPlane = -0.0125;
    static const double doRANSAC = true; 
 
 
@@ -92,7 +92,9 @@ class FindCluster
   int cycleCountImg;
 
   bool trackingIdFlags[64];
-  std::vector<ColoredPointCluster> lastClusterSet;
+  std::vector<ColoredPointClusterxp> lastClusterSet;
+
+  std::vector<ColoredPointClusterxp> lastPlaneClusterSet;
 
   bool captureNow;
   //bool doRANSAC;
@@ -118,11 +120,6 @@ public:
     cycleCountImg = 0;
 
     captureNow = false;
-    initialRun = true;
-    oldManual[0] = 0.0;
-    oldManual[1] = 0.0;
-    oldManual[2] = 0.0;
-    oldManual[3] = 0.0;
   }
 
   ~FindCluster()
@@ -221,9 +218,9 @@ void captureThis(std_msgs::String msg) {
 
 
 /********************************************************************/
-  std::vector<ColoredPointCluster> createClusterSet(std::vector<ColoredPoint> coloredPointSet) {
-	std::vector<ColoredPointCluster> clusterSet;
-	ColoredPointCluster cluster;
+  std::vector<ColoredPointClusterxp> createClusterSet(std::vector<pcl::PointXYZRGB> coloredPointSet) {
+	std::vector<ColoredPointClusterxp> clusterSet;
+	ColoredPointClusterxp cluster;
 
 	for (size_t i = 0; i < coloredPointSet.size (); i++) {
 		cluster.clear();
@@ -237,7 +234,7 @@ void captureThis(std_msgs::String msg) {
 
 
 /********************************************************************/
-std::vector<ColoredPointCluster> avgLinkageClusterSet(std::vector<ColoredPointCluster> clusterSetIn, double distWeight, double colWeight, double distanceBound) {
+std::vector<ColoredPointClusterxp> avgLinkageClusterSet(std::vector<ColoredPointClusterxp> clusterSetIn, double distWeight, double colWeight, double distanceBound) {
 	for (size_t i = 0; i < clusterSetIn.size (); i++) {
 		size_t j = i + 1; 
 		while (j < clusterSetIn.size ()) {
@@ -255,7 +252,7 @@ std::vector<ColoredPointCluster> avgLinkageClusterSet(std::vector<ColoredPointCl
 
 
 /********************************************************************/
-std::vector<ColoredPointCluster> singleLinkageClusterSet(std::vector<ColoredPointCluster> clusterSetIn, double distWeight, double colWeight, double distanceBound) {
+std::vector<ColoredPointClusterxp> singleLinkageClusterSet(std::vector<ColoredPointClusterxp> clusterSetIn, double distWeight, double colWeight, double distanceBound) {
 	for (size_t i = 0; i < clusterSetIn.size (); i++) {
 		size_t j = i + 1; 
 		while (j < clusterSetIn.size ()) {
@@ -275,12 +272,9 @@ std::vector<ColoredPointCluster> singleLinkageClusterSet(std::vector<ColoredPoin
 
 /********************************************************************/
 
-void erasePlaneCluster(std::vector<ColoredPointCluster>&  clusterSet, double coefficients[], double maxClusterLength, double minDistanceAbovePlane) {
-	
-	
-
+void erasePlaneCluster(std::vector<ColoredPointClusterxp>& clusterSet, double maxClusterLength) {
 	for (size_t i = 0; i < clusterSet.size(); i++) {
-		if ((fabs(signedPointPlaneDistance(clusterSet.at(i).center.x, clusterSet.at(i).center.y, clusterSet.at(i).center.z, coefficients[0], coefficients[1], coefficients[2], coefficients[3])) < minDistanceAbovePlane) && (clusterSet.at(i).getMaxClusterLength() > maxClusterLength)) {
+		if (clusterSet.at(i).getMaxClusterLength() > maxClusterLength) {
 			clusterSet.erase(clusterSet.begin() + i);
 		}
 	}
@@ -288,7 +282,7 @@ void erasePlaneCluster(std::vector<ColoredPointCluster>&  clusterSet, double coe
 
 
 /********************************************************************/
-void assignTrackingIds(std::vector<ColoredPointCluster>& curClusterSet, std::vector<ColoredPointCluster>& lastClusterSet) {
+void assignTrackingIds(std::vector<ColoredPointClusterxp>& curClusterSet, std::vector<ColoredPointClusterxp>& lastClusterSet) {
 	for (int i = 0; i < 64; i++) {
 	   trackingIdFlags[i] = false;
 	}
@@ -368,7 +362,7 @@ void siftExample(cv_bridge::CvImagePtr& cv_ptr)
 }
 
 
-void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& clusterSet, std::vector<ColoredPoint>& planeRgbdPixelSet, bool imageOnly) {
+void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& clusterSet, std::vector<pcl::PointXYZRGB>& planeRgbdPixelSet, bool imageOnly) {
  
 	std::stringstream strstr;
 	std::stringstream strstr2;
@@ -429,8 +423,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
   void imageSCb(const sensor_msgs::ImageConstPtr& msg)
   {
-    std::vector<ColoredPoint> rgbdPixelSet;
-    std::vector<ColoredPoint> planeRgbdPixelSet;
+    std::vector<pcl::PointXYZRGB> rgbdPixelSet;
+    std::vector<pcl::PointXYZRGB> planeRgbdPixelSet;
 
     if (cycleCountImg%100 == 0)	
     std::cerr << " new image data received " << std::endl;
@@ -489,8 +483,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
           reducePointCloudByDistanceAndHeight(cloudRGB, 1.5, 0.5);
 	
-	ColoredPoint rgbdPixel;
-	ColoredPoint planeRgbdPixel;
+	pcl::PointXYZRGB rgbdPixel;
+	pcl::PointXYZRGB planeRgbdPixel;
 	cv::Vec3b pixelColorVector;
 
 	for (size_t i = 0; i < cloudRGB.points.size (); i++)
@@ -503,7 +497,10 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 		if (true && (!((fabs(coeffManual[1]) > 0.75)))) {
 			break;	//ignore if table is not parallel to y,z plane 
 		}		//if points are on the table and cluster too - big --> paint it black
-		if (!((signedPointDistanceToSACPlane < minDistanceAbovePlane) || (cloudRGB.points[i].z > 1.5))) { // if points are on the table and a bit under - fill colorpointarray
+
+
+	if (cloudRGB.points[i].z < 1.5) {
+		if (signedPointDistanceToSACPlane >= minDistanceAbovePlane) { // if points are on the table and a bit under - fill colorpointarray
 			rgbdPixel.x = cloudRGB.points[i].x;
 			rgbdPixel.y = cloudRGB.points[i].y;
 			rgbdPixel.z = cloudRGB.points[i].z;
@@ -513,35 +510,33 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
 	  	        rgbdPixelSet.push_back(rgbdPixel);
 
-		} else {
-			if (fabs(signedPointDistanceToSACPlane) < minDistanceAbovePlane) {
+		} else 
+		if (signedPointDistanceToSACPlane > minDistanceUnderPlane) {
 				planeRgbdPixel.x = cloudRGB.points[i].x;
 				planeRgbdPixel.y = cloudRGB.points[i].y;
 				planeRgbdPixel.z = cloudRGB.points[i].z;
-			      planeRgbdPixel.r = cloudRGB.points[i].r;
-			      planeRgbdPixel.g = cloudRGB.points[i].g;
-			      planeRgbdPixel.b = cloudRGB.points[i].b;
+				planeRgbdPixel.r = cloudRGB.points[i].r;
+				planeRgbdPixel.g = cloudRGB.points[i].g;
+				planeRgbdPixel.b = cloudRGB.points[i].b;
 
- 
-	
 			      planeRgbdPixelSet.push_back(planeRgbdPixel);
 
 			}
+		} else {
 			continue;	//and if points not above the table 	
 		}
-		
-
-
-
+	
 	  } // for every Point in cff
 
 
-	std::vector<ColoredPointCluster> clusterSet = createClusterSet(rgbdPixelSet);
+	std::vector<ColoredPointClusterxp> clusterSet = createClusterSet(rgbdPixelSet);
+	std::vector<ColoredPointClusterxp> planeClusterSet = createClusterSet(planeRgbdPixelSet);
 
 	double stepSize = 0.02;
 	double upperLimit = 0.2;
 	for (double a = stepSize; ((a < upperLimit) && (clusterSet.size() >= 2)); a += stepSize) {	
 		clusterSet = singleLinkageClusterSet(clusterSet, 2.0, 0.01, a);	
+		planeClusterSet = singleLinkageClusterSet(planeClusterSet, 0.5, 0.01, a);	
 	}
 
 
@@ -552,16 +547,20 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 	
 //---------------------------------------------------------------A
 
-	erasePlaneCluster(clusterSet, coeffManual, maxClusterLength, minDistanceAbovePlane);
+	erasePlaneCluster(planeClusterSet, maxClusterLength);
 
 
 	assignTrackingIds(clusterSet, lastClusterSet);
+
+	assignTrackingIds(planeClusterSet, lastPlaneClusterSet);
 
 
         //siftExample(cv_ptr);
 
 
-	drawClusterPoints(cv_ptr, clusterSet);
+	drawClusterPoints(cv_ptr, clusterSet, false);  //only above table
+	drawClusterPoints(cv_ptr, planeClusterSet, true);  //on table
+
 
 	if (captureNow) {
 		dumpOut(cv_ptr, clusterSet, planeRgbdPixelSet, true);
@@ -607,19 +606,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
 
  
-
-   //std::cerr << "A "  << paramA << std::endl;
-   //std::cerr << "B "  << paramB << std::endl;
-   //std::cerr << "C "  << paramC << std::endl;
-   //std::cerr << "D "  << paramD << std::endl;
-
-    initialRun = false;
-
-    //cloud_percept.publish(bestCluster);
-
-
-//    pcl::fromROSMsg (*input, cff);
-
     pcl::toROSMsg(publishClusterXYZ, publishedCluster);
     cloud_percept.publish(publishedCluster); // is still empty
 
@@ -638,7 +624,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& cl
 
 /********************************************************************/
 
-void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCluster>& clusterSet) {
+void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& clusterSet, bool isOnTable = false) {
 
 	int pix_x = 0;
 	int pix_y = 0;	     
@@ -671,11 +657,19 @@ void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCl
 		      cv::Point pointPx1y1z0(pix_xf1, pix_yf1);
 		      cv::Point pointPx0y0z1(pix_xh0, pix_yh0);
 		      cv::Point pointPx1y1z1(pix_xh1, pix_yh1);
+
+		if (!isOnTable) {
   		      cv::rectangle(cv_ptr->image, pointPx0y0z0, pointPx1y1z0, CV_RGB(255, 0, 0));
   		      cv::rectangle(cv_ptr->image, pointPx0y0z1, pointPx1y1z1, CV_RGB(0, 0, 0));
 		      cv::line(cv_ptr->image, pointPx0y0z0, pointPx0y0z1, CV_RGB(127, 0, 0));
 		      cv::line(cv_ptr->image, pointPx1y1z0, pointPx1y1z1, CV_RGB(127, 0, 0));
-		}
+		} else {
+  		      cv::rectangle(cv_ptr->image, pointPx0y0z0, pointPx1y1z0, CV_RGB(0, 0, 255));
+  		      cv::rectangle(cv_ptr->image, pointPx0y0z1, pointPx1y1z1, CV_RGB(0, 0, 0));
+		      cv::line(cv_ptr->image, pointPx0y0z0, pointPx0y0z1, CV_RGB(0, 0, 127));
+		      cv::line(cv_ptr->image, pointPx1y1z0, pointPx1y1z1, CV_RGB(0, 0, 127));
+		}		
+}
 
 
 
@@ -728,22 +722,15 @@ void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCl
      
 ////
       } // for all clusters
+
+
 }
 
 
 
 
+
 }; //class ends
-
-
-
-
-
-
-
-
-
-
 
 
 
