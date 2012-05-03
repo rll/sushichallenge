@@ -587,10 +587,10 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
         //siftExample(cv_ptr);
 
-
-//	drawClusterPoints(cv_ptr, clusterSet, false);  //only above table
-//	drawClusterPoints(cv_ptr, planeClusterSet, true);  //on table
-
+	if (!transformationWorked) {
+		drawClusterPoints(cv_ptr, clusterSet, false);  //only above table
+		drawClusterPoints(cv_ptr, planeClusterSet, true);  //on table
+	}
 
 	if (captureNow) {
 		dumpOut(cv_ptr, clusterSet, planeRgbdPixelSet, true);
