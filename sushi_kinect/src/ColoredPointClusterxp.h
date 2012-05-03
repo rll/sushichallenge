@@ -62,7 +62,7 @@ class ColoredPointClusterxp {
 		   center.b /= points.size(); 
 
 		
-		PointXYZRGB help;
+		PointXYZRGB help; help.x = help.y = help.z = help.r = help.g = help.b = 0.0;
 		for (size_t i = 0; i < points.size(); i++) {	//variance calculation
 			help.x = help.x + (points.at(i).x - center.x) * (points.at(i).x - center.x);
 			help.y = help.y + (points.at(i).y - center.y) * (points.at(i).y - center.y);

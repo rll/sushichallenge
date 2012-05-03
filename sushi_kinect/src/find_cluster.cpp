@@ -15,6 +15,11 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl_ros/point_cloud.h>
+
+#include <pcl_ros/transforms.h>
+
+
 
 /////////////
 
@@ -25,6 +30,9 @@
 #include <geometry_msgs/Vector3.h>
 #include "std_msgs/String.h"
 #include "ColoredPointClusterxp.h"
+
+#include <tf/transform_listener.h>
+
 //#include <geometry_msgs/PoseArray.h>
 
 
@@ -64,6 +72,8 @@ class FindCluster
   ros::Publisher cloud_percept;
   ros::Publisher cloud_vector;
 
+  tf::TransformListener listener;
+
 
   //ros::NodeHandle pa;
   //ros::Publisher pose_array; 
@@ -83,6 +93,8 @@ class FindCluster
 
 
   //Store point cloud data
+  sensor_msgs::PointCloud2Ptr cloud_transformed_ptr;
+
   sensor_msgs::PointCloud2 cloud_filtered;
   pcl::PointCloud<pcl::PointXYZRGB> cloudRGB;
   
@@ -97,6 +109,7 @@ class FindCluster
   std::vector<ColoredPointClusterxp> lastPlaneClusterSet;
 
   bool captureNow;
+  bool transformationWorked;
   //bool doRANSAC;
 
 public:
@@ -105,6 +118,9 @@ public:
   FindCluster()
     : it_(nh_)
   {
+    cloud_transformed_ptr.reset(new sensor_msgs::PointCloud2());
+    transformationWorked = false;
+
     capture_sub = cp.subscribe("/bolt/vision/capture", 1, &FindCluster::captureThis, this);
     cloud_sub = pt_.subscribe("cloud_in", 1, &FindCluster::cloudSCb, this);
     image_sub_ = it_.subscribe("image_in", 1, &FindCluster::imageSCb, this);
@@ -113,7 +129,6 @@ public:
     cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
     cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
         
-//pose_array = pa.advertise<geometry_msgs::PoseArray>("/bolt/vision/pose_array", 10);
 
 
     cycleCountPcl = 0;
@@ -406,16 +421,34 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
   void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
   {
+
+//input.header.frame_id
+//
+
+// 	transformPointCloud (const std::string &target_frame, const sensor_msgs::PointCloud2 &in, sensor_msgs::PointCloud2 &out, const tf::TransformListener &tf_listener)
+
+	try{
+		transformationWorked = pcl_ros::transformPointCloud("/base_link", *input, *cloud_transformed_ptr, listener);
+	   }
+	catch (tf::TransformException ex)
+	    {
+		
+	    }
+	
     if (cycleCountPcl%100 == 0)	
 	std::cerr << " new pcl data received " << std::endl;
 
-	  sor.setInputCloud (input);
+	  if (transformationWorked) {
+		  sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
+	  } else {
+		  sor.setInputCloud (input); //USED TO BE INPUT
+	  }
+
 	  sor.setLeafSize (VoxelizeLeafSize, VoxelizeLeafSize, VoxelizeLeafSize);
 	  sor.filter (cloud_filtered);
 
           pcl::fromROSMsg (cloud_filtered, cloudRGB);
 	  cycleCountPcl++;
-
   }
 
 
@@ -427,7 +460,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
     std::vector<pcl::PointXYZRGB> planeRgbdPixelSet;
 
     if (cycleCountImg%100 == 0)	
-    std::cerr << " new image data received " << std::endl;
+    std::cerr << "new image data received " << std::endl;
 
     
     try
@@ -440,8 +473,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
       return;
     }
 
-
-    
 //////
 	if (cycleCountPcl <= 0) { // no point cloud data
 	    cycleCountImg++;
@@ -469,7 +500,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
 	  seg.setInputCloud (cloudRGB.makeShared ());
 
-
 	  seg.segment (inliers, coefficients);
 
 	if (coefficients.values.size() > 3) {
@@ -478,8 +508,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 	  		  coeffManual[2] = coefficients.values.at(2);
 	  		  coeffManual[3] = coefficients.values.at(3);
 	}
-
-
 
           reducePointCloudByDistanceAndHeight(cloudRGB, 1.5, 0.5);
 	
@@ -528,7 +556,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 	
 	  } // for every Point in cff
 
-
 	std::vector<ColoredPointClusterxp> clusterSet = createClusterSet(rgbdPixelSet);
 	std::vector<ColoredPointClusterxp> planeClusterSet = createClusterSet(planeRgbdPixelSet);
 
@@ -558,8 +585,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
         //siftExample(cv_ptr);
 
 
-	drawClusterPoints(cv_ptr, clusterSet, false);  //only above table
-	drawClusterPoints(cv_ptr, planeClusterSet, true);  //on table
+//	drawClusterPoints(cv_ptr, clusterSet, false);  //only above table
+//	drawClusterPoints(cv_ptr, planeClusterSet, true);  //on table
 
 
 	if (captureNow) {
@@ -603,8 +630,6 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
     } else {
 	bestCluster.x = bestCluster.y = 0; bestCluster.z = 1;
     }
-
-
  
     pcl::toROSMsg(publishClusterXYZ, publishedCluster);
     cloud_percept.publish(publishedCluster); // is still empty
@@ -737,7 +762,6 @@ void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointCl
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "filter_plane");
-
   
   FindCluster tip;
   
