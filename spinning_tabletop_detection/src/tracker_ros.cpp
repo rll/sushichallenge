@@ -17,8 +17,9 @@ Eigen::Affine3f toEigenTransform(const btTransform& transform) {
 
 TabletopTrackerROS::TabletopTrackerROS(ros::NodeHandle nh) : hasPendingMessage(false) {
   cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("spinning_tabletop/clouds",100);
-  cloud_sub = nh.subscribe("/qwe",1,&TabletopTrackerROS::callback, this);
+  cloud_sub = nh.subscribe("input_cloud",1,&TabletopTrackerROS::callback, this);
 }
+
 
 void TabletopTrackerROS::callback(const sensor_msgs::PointCloud2& msg) {
   ColorCloudPtr cloud(new ColorCloud());
@@ -31,7 +32,6 @@ void TabletopTrackerROS::updateTransform() {
   tf::StampedTransform stamped_transform;
   listener.lookupTransform("base_footprint", "/openni_rgb_optical_frame", ros::Time(0), stamped_transform);
   transform = toEigenTransform(stamped_transform.asBt());
-
 }
 
 ColorCloudPtr addColor(ColorCloudPtr in, uint8_t r, uint8_t g, uint8_t b) {

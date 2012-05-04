@@ -4,6 +4,8 @@
 #include "cloud_ops.h"
 #include <boost/foreach.hpp>
 #include "dist_math.h"
+#include <ros/console.h>
+#include <sstream>
 
 using namespace std;
 using namespace Eigen;
@@ -11,7 +13,7 @@ using namespace Eigen;
 
 static const float VOXEL_SIZE = .01; // for downsampling
 static const float TABLE_CLUSTERING_TOLERANCE=.02; // for finding table = biggest cluster at height
-static const float OBJECT_CLUSTERING_TOLERANCE=.03; // for clustering objects on table
+static const float OBJECT_CLUSTERING_TOLERANCE=.04; // for clustering objects on table
 static const int OBJECT_CLUSTER_MIN_SIZE = 15; // number of points
 static const float OBJECT_MATCH_TOLERANCE = .04;
 static const float ABOVE_TABLE_CUTOFF=.01;
@@ -26,9 +28,9 @@ void TabletopTracker::updateCloud() {
 }
 
 void TabletopTracker::updateTable() {
-  cout << transform.matrix() << endl;
+  ROS_DEBUG_STREAM(transform.matrix());
   table_height = getTableHeight(transformed_cloud);
-  cout << "table_height " << table_height << endl;
+  ROS_DEBUG_STREAM("table_height " << table_height);
   ColorCloudPtr in_table = getTablePoints(transformed_cloud, table_height);
   in_table = getBiggestCluster(in_table, TABLE_CLUSTERING_TOLERANCE);
   //  table_hull = findConvexHull(in_table, table_polygons);
@@ -145,10 +147,9 @@ void TabletopTracker::updateCylinders() {
     for (int i=0; i < clusters.size(); i++) {
       if (dists(i, new2old[i]) < OBJECT_MATCH_TOLERANCE)  {
 	newids[i] = ids[new2old[i]];
-	cout << " gotit " << endl;
       }
       else {
-	cout << "lost a clusters!" << endl;
+	ROS_INFO("lost a cluster!");
 	newids[i] = smallest_unused_id;
 	smallest_unused_id++;
       }
@@ -157,9 +158,10 @@ void TabletopTracker::updateCylinders() {
   }
   circle_centers = new_circle_centers;
 
-  cout << "ids: ";
-  BOOST_FOREACH(int i, ids) cout << i << " ";
-  cout << endl;
+  stringstream ss;
+  ss << "ids: ";
+  BOOST_FOREACH(int i, ids) ss << i << " ";
+  ROS_INFO_STREAM(ss);
 }
 
 
@@ -178,4 +180,11 @@ void TabletopTracker::updateAll() {
     updateCylinders();
   }
 
+}
+
+void TabletopTracker::reset() {
+  clusters = vector<ColorCloudPtr>();
+  ids = std::vector<int>();
+  smallest_unused_id = 0;
+  circle_centers = Eigen::MatrixXf();
 }

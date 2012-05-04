@@ -34,7 +34,6 @@ int leastIntGreaterThan(float x) {
 }
 
 void makeHistogram(const VectorXf& vals, float res, VectorXi& counts, VectorXf& binedges) {
-  cout << "vals: " << vals.block(0,0,10,1).transpose() << endl;
   float low = vals.minCoeff();
   float high = vals.maxCoeff();
   int nbins = leastIntGreaterThan( (high - low) / res);
@@ -63,13 +62,14 @@ VectorXf clipSet(const VectorXf& in, float low, float high) {
 float getTableHeight(ColorCloudPtr cloud) {
   MatrixXf xyz = toEigenMatrix(cloud);
   VectorXf z = clipSet(xyz.block(0,2,xyz.rows(), 1),MIN_HEIGHT,MAX_HEIGHT);
-  cout << z.block(0,0,10,1).transpose();
+  if (z.size() < 100) throw runtime_error("getTableHeight: no points at appropriate height");
   float res = HIST_RES;
   VectorXi counts;
   VectorXf binedges;
   makeHistogram(z, res, counts, binedges);
   int iMax;
   counts.maxCoeff(&iMax);
+  if (counts.maxCoeff() < 30) throw runtime_error("getTableHeight: not enough points at table height");
   return binedges(iMax) + res/2;
 
 }

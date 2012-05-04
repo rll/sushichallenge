@@ -10,14 +10,19 @@ int main(int argc, char* argv[]) {
 
   ros::Duration(1).sleep();
 
-  ROS_INFO("hi");
-  while (true) {
+  while (ros::ok()) {
     for (int i=0; i < 10; i++) ros::spinOnce();
     if (tracker.hasPendingMessage) {
-      ROS_INFO("got one!");
-      tracker.updateAll();
-      tracker.publish();
-      tracker.hasPendingMessage = false;
+      ROS_INFO("tracker has pending message. updating");
+      try {
+	tracker.updateAll();
+	tracker.publish();
+	tracker.hasPendingMessage = false;
+      }
+      catch (std::runtime_error err) {
+	ROS_ERROR_STREAM("error while updating tracker: " <<err.what());
+	ros::Duration(.1).sleep();
+      }
     }
     else {
       ros::Duration(0.01).sleep();

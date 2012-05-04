@@ -12,6 +12,7 @@
   <depend package="roscpp"/>
   <depend package="pcl_ros"/>
   <depend package="pcl"/>
+  <depend package="misc_srvs"/>
 </package>
 
 
