@@ -6,8 +6,9 @@ class TabletopTracker {
 public:
   bool initialized;
 
-  ColorCloudPtr latest_cloud;
   Eigen::Affine3f transform;
+
+  ColorCloudPtr latest_cloud;
   ColorCloudPtr transformed_cloud;
 
   ColorCloudPtr table_hull;
@@ -16,9 +17,9 @@ public:
   std::vector<pcl::Vertices> table_polygons;
 
   std::vector<ColorCloudPtr> clusters;
-
   std::vector<int> ids;
   int smallest_unused_id;
+  std::vector<Eigen::VectorXf> cylinder_params;
   Eigen::MatrixXf circle_centers;
 
   TabletopTracker() : initialized(false) {}
@@ -29,6 +30,6 @@ public:
   void updateClusters();
   void updateCylinders();
   virtual void updateAll();
-
+  virtual void reset();
 };
 

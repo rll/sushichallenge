@@ -4,6 +4,8 @@
 #include "cloud_ops.h"
 #include <boost/foreach.hpp>
 #include "dist_math.h"
+#include <ros/console.h>
+#include <sstream>
 
 using namespace std;
 using namespace Eigen;
@@ -11,10 +13,10 @@ using namespace Eigen;
 
 static const float VOXEL_SIZE = .01; // for downsampling
 static const float TABLE_CLUSTERING_TOLERANCE=.02; // for finding table = biggest cluster at height
-static const float OBJECT_CLUSTERING_TOLERANCE=.03; // for clustering objects on table
+static const float OBJECT_CLUSTERING_TOLERANCE=.04; // for clustering objects on table
 static const int OBJECT_CLUSTER_MIN_SIZE = 15; // number of points
 static const float OBJECT_MATCH_TOLERANCE = .04;
-static const float ABOVE_TABLE_CUTOFF=.01;
+static const float ABOVE_TABLE_CUTOFF=.02;
 
 
 void TabletopTracker::setLatest(ColorCloudPtr cloud) {
@@ -26,9 +28,9 @@ void TabletopTracker::updateCloud() {
 }
 
 void TabletopTracker::updateTable() {
-  cout << transform.matrix() << endl;
+  ROS_DEBUG_STREAM(transform.matrix());
   table_height = getTableHeight(transformed_cloud);
-  cout << "table_height " << table_height << endl;
+  ROS_INFO_STREAM("table_height " << table_height);
   ColorCloudPtr in_table = getTablePoints(transformed_cloud, table_height);
   in_table = getBiggestCluster(in_table, TABLE_CLUSTERING_TOLERANCE);
   //  table_hull = findConvexHull(in_table, table_polygons);
@@ -78,7 +80,7 @@ vector<ColorCloudPtr> mergeOverlappingCircles(vector<ColorCloudPtr> clu_list) {
     for (int j=i+1; j < n_clu; j++)
       {
 	float dist = (params_list[i].block(0,0,2,1) - params_list[j].block(0,0,2,1)).norm();
-	float rad_sum = params_list[i][6] + params_list[j][6];
+	float rad_sum = params_list[i][3] + params_list[j][3];
 	if (dist < rad_sum) merge_to[j] = merge_to[i];
       }
 
@@ -92,12 +94,6 @@ vector<ColorCloudPtr> mergeOverlappingCircles(vector<ColorCloudPtr> clu_list) {
 
   vector<ColorCloudPtr> final;
   BOOST_FOREACH(ColorCloudPtr cloud, merges) if (cloud) final.push_back(cloud);
-
-  // int final_sum = 0;
-  // int orig_sum = 0;
-  // BOOST_FOREACH(ColorCloudPtr cloud, final) final_sum += cloud->size();
-  // BOOST_FOREACH(ColorCloudPtr cloud, clu_list) orig_sum += cloud->size();
-  // printf("orig: %i, final:%i\n", orig_sum, final_sum);
 
   return final;
 
@@ -116,7 +112,10 @@ void TabletopTracker::updateClusters() {
   //on_table = getPointsOnTableHull(transformed_cloud, table_hull, table_polygons, table_height+ABOVE_TABLE_CUTOFF);
 
   ColorCloudPtr on_table = filterXYZ(transformed_cloud, xmin, xmax, ymin, ymax, table_height+ABOVE_TABLE_CUTOFF, 1000);
+  if (on_table->size() == 0) throw runtime_error("no points on table");
+  cout << "on table: " << on_table->size() << endl;
   vector< vector<int> > cluster_inds = findClusters(on_table,OBJECT_CLUSTERING_TOLERANCE,OBJECT_CLUSTER_MIN_SIZE);
+  if (cluster_inds.size() == 0) throw runtime_error("no reasonably big clusters found on table");
 
   clusters.clear();
   BOOST_FOREACH(vector<int>& inds, cluster_inds) {
@@ -128,10 +127,12 @@ void TabletopTracker::updateClusters() {
 }
 
 void TabletopTracker::updateCylinders() {
+
   MatrixXf new_circle_centers(clusters.size(), 2);
-  vector<VectorXf> circle_params = getCircleParams(clusters);
+  cylinder_params = getCircleParams(clusters);
   for (int i=0; i < clusters.size(); i++) {
-    new_circle_centers.row(i) = circle_params[i].block(0,0,2,1).transpose();
+    new_circle_centers(i,0) = cylinder_params[i](0);
+    new_circle_centers(i,1) = cylinder_params[i](1);
   }
 
   if (ids.size() == 0) { // first time 
@@ -145,10 +146,9 @@ void TabletopTracker::updateCylinders() {
     for (int i=0; i < clusters.size(); i++) {
       if (dists(i, new2old[i]) < OBJECT_MATCH_TOLERANCE)  {
 	newids[i] = ids[new2old[i]];
-	cout << " gotit " << endl;
       }
       else {
-	cout << "lost a clusters!" << endl;
+	ROS_INFO("lost a cluster!");
 	newids[i] = smallest_unused_id;
 	smallest_unused_id++;
       }
@@ -157,9 +157,10 @@ void TabletopTracker::updateCylinders() {
   }
   circle_centers = new_circle_centers;
 
-  cout << "ids: ";
-  BOOST_FOREACH(int i, ids) cout << i << " ";
-  cout << endl;
+  stringstream ss;
+  ss << "ids: ";
+  BOOST_FOREACH(int i, ids) ss << i << " ";
+  ROS_INFO_STREAM(ss);
 }
 
 
@@ -178,4 +179,11 @@ void TabletopTracker::updateAll() {
     updateCylinders();
   }
 
+}
+
+void TabletopTracker::reset() {
+  clusters = vector<ColorCloudPtr>();
+  ids = std::vector<int>();
+  smallest_unused_id = 0;
+  circle_centers = Eigen::MatrixXf();
 }

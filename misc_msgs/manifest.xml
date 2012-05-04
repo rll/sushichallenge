@@ -1,0 +1,14 @@
+<package>
+  <description brief="misc_msgs">
+
+     misc_msgs
+
+  </description>
+  <author>John Schulman</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/misc_msgs</url>
+
+</package>
+
+

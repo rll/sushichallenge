@@ -8,7 +8,9 @@ public:
   tf::TransformListener listener;
   ros::Publisher cloud_pub;
   ros::Subscriber cloud_sub;
+  ros::Publisher cyl_pub;
   bool hasPendingMessage;
+  ros::Time latest_stamp;
 
   TabletopTrackerROS(ros::NodeHandle n);
   void updateTransform();

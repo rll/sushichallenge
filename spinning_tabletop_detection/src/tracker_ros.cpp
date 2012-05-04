@@ -3,7 +3,9 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <pcl/io/pcd_io.h>
+#include <misc_msgs/TrackedCylinders.h>
 using namespace std;
+using namespace Eigen;
 
 Eigen::Affine3f toEigenTransform(const btTransform& transform) {
   btVector3 transBullet = transform.getOrigin();
@@ -17,13 +19,16 @@ Eigen::Affine3f toEigenTransform(const btTransform& transform) {
 
 TabletopTrackerROS::TabletopTrackerROS(ros::NodeHandle nh) : hasPendingMessage(false) {
   cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("spinning_tabletop/clouds",100);
-  cloud_sub = nh.subscribe("/qwe",1,&TabletopTrackerROS::callback, this);
+  cyl_pub = nh.advertise<misc_msgs::TrackedCylinders>("spinning_tabletop/cylinders",100);
+  cloud_sub = nh.subscribe("input_cloud",1,&TabletopTrackerROS::callback, this);
 }
+
 
 void TabletopTrackerROS::callback(const sensor_msgs::PointCloud2& msg) {
   ColorCloudPtr cloud(new ColorCloud());
   pcl::fromROSMsg(msg, *cloud);
   setLatest(cloud);
+  latest_stamp = msg.header.stamp;
   hasPendingMessage = true;
 }
 
@@ -31,7 +36,6 @@ void TabletopTrackerROS::updateTransform() {
   tf::StampedTransform stamped_transform;
   listener.lookupTransform("base_footprint", "/openni_rgb_optical_frame", ros::Time(0), stamped_transform);
   transform = toEigenTransform(stamped_transform.asBt());
-
 }
 
 ColorCloudPtr addColor(ColorCloudPtr in, uint8_t r, uint8_t g, uint8_t b) {
@@ -53,9 +57,9 @@ ColorCloudPtr addColor(ColorCloudPtr in, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 ColorCloudPtr colorByID(ColorCloudPtr in, int id) {
-  uint8_t r = (id * 53)%256;
-  uint8_t g = (id * 139)%256;
-  uint8_t b = (id * 223)%256;
+  uint8_t r = (id * 53)%251;
+  uint8_t g = (id * 139)%251;
+  uint8_t b = (id * 223)%251;
   return addColor(in, r, g, b);
 }
 
@@ -78,6 +82,20 @@ void TabletopTrackerROS::publish() {
     pc.header.frame_id = "base_footprint";
     pc.header.stamp = ros::Time(0);
     cloud_pub.publish(pc);
+
+    misc_msgs::TrackedCylinders tc;
+    tc.header.frame_id = "base_footprint";
+    tc.header.stamp = latest_stamp;
+    tc.ids = ids;
+    BOOST_FOREACH(VectorXf& cyl, cylinder_params) {
+      tc.xs.push_back(cyl(0));
+      tc.ys.push_back(cyl(1));
+      tc.zs.push_back(cyl(2));
+      tc.rs.push_back(cyl(3));
+      tc.hs.push_back(cyl(4));
+    }
+    cyl_pub.publish(tc);
+
   }
 
   // tc.table = table;
