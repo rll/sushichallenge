@@ -1,0 +1,6 @@
+<launch>
+  <include file="$(find rotating_grasper)/launch/jt_right.launch"/>
+	
+  <node name="rotating_grasp_server" pkg="rotating_grasper" type="rotating_grasp_server.py" />
+  <node name="fixed_grasp_sender" pkg="rotating_grasper" type="fixed_grasp_sender.py" />
+</launch>
