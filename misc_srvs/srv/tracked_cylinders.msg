@@ -1,4 +1,3 @@
-Header header
 int32[] ids
 float32[] xs
 float32[] ys

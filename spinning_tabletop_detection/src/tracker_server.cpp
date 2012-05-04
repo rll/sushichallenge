@@ -23,7 +23,7 @@ struct TrackerServer {
 
   void run() {
     while (ros::ok()) {
-
+      ros::spinOnce();
       if (!state) {
 	ROS_DEBUG("tracker server is sleeping");
 	ros::Duration(.1).sleep();

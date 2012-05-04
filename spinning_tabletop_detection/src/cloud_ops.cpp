@@ -204,16 +204,13 @@ VectorXf getEnclosingCircle(ColorCloudPtr cloud) {
   cv::Point2f center;
   float radius;
   cv::minEnclosingCircle(mat, center, radius);
-  printf("x: %.2f, y: %.2f, r: %.2f\n", center.x/1000, center.y/1000, radius/1000);
 
-  VectorXf coeffs(7);
+  VectorXf coeffs(5);
   coeffs(0) = center.x/1000;
   coeffs(1) = center.y/1000;
-  coeffs(2) = zs.minCoeff();
-  coeffs(3) = 0;
-  coeffs(4) = 0;
-  coeffs(5) = zs.maxCoeff() - zs.minCoeff();
-  coeffs(6) = radius/1000;
+  coeffs(2) = (zs.minCoeff() + zs.maxCoeff())/2;
+  coeffs(3) = radius/1000;
+  coeffs(4) = (zs.maxCoeff() - zs.minCoeff())/2;
 
   return coeffs;
 
