@@ -1,0 +1,4 @@
+<launch>
+  <include file="jt_left2.launch"/>
+  <include file="jt_right2.launch"/>
+</launch>
