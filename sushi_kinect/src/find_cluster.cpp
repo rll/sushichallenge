@@ -524,16 +524,19 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 	pcl::PointXYZRGB planeRgbdPixel;
 	cv::Vec3b pixelColorVector;
 
+	if (cycleCountImg%100 == 0) {	
+		ROS_INFO("A: %f B: %f C: %f D: %f Cyc %d", coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3], cycleCountImg);
+	 }
+
+
+
 	for (size_t i = 0; i < cloudRGB.points.size (); i++)
 	  {
 
 //ignore everything, matching the following criterion
 		double signedPointDistanceToSACPlane = signedPointPlaneDistance(cloudRGB.points[i].x, cloudRGB.points[i].y, cloudRGB.points[i].z, coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3]);
 	
-	 if (cycleCountImg%100 == 0) {	
-		ROS_INFO("A: %f B: %f C: %f D: %f Cyc %d", coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3], cycleCountImg);
-	 }
-
+	 
 //		if (true && (!((fabs(coeffManual[1]) > 0.75)))) {
 //			break;	//ignore if table is not parallel to y,z plane 
 //		}		//if points are on the table and cluster too - big --> paint it black
