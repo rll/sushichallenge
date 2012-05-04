@@ -1,5 +1,5 @@
 <launch>
-  <node name="find_cluster" pkg="sushi_kinect" type="find_cluster">
+  <node name="find_cluster" pkg="sushi_kinect" type="find_cluster" output="screen">
 	<remap from="image_in" to="/camera/rgb/image_color"/>
 	<remap from="cloud_in" to="/camera/rgb/points"/> 
  </node>
