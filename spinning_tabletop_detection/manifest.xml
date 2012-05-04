@@ -1,0 +1,18 @@
+<package>
+  <description brief="spinning_tabletop_detection">
+
+     spinning_tabletop_detection
+
+  </description>
+  <author>John Schulman</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/spinning_tabletop_detection</url>
+  <depend package="sensor_msgs"/>
+  <depend package="roscpp"/>
+  <depend package="pcl_ros"/>
+  <depend package="pcl"/>
+  <depend package="misc_srvs"/>
+</package>
+
+

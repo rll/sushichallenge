@@ -20,14 +20,26 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
+find_package(OpenCV REQUIRED)
+
+add_definitions("-DEIGEN_DEFAULT_TO_ROW_MAJOR")
+
 
 #common commands for building c++ executables and libraries
-#rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
+rosbuild_add_library(spinning_tabletop_detection
+  src/cloud_ops.cpp
+  src/plane_finding.cpp
+  src/utils_cv.cpp
+  src/utils_pcl.cpp
+  src/tracker.cpp
+  src/tracker_ros.cpp
+  src/dist_math.cpp
+  src/table.cpp
+)
+target_link_libraries(spinning_tabletop_detection ${OpenCV_LIBS})
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
-#rosbuild_add_executable(example examples/example.cpp)
-#target_link_libraries(example ${PROJECT_NAME})
-
-rosbuild_add_executable(find_cluster src/find_cluster.cpp)
-
+rosbuild_add_executable(test_tracker_ros src/test_tracker_ros.cpp)
+target_link_libraries(test_tracker_ros spinning_tabletop_detection)
+rosbuild_add_executable(tracker_server src/tracker_server.cpp)
+target_link_libraries(tracker_server spinning_tabletop_detection)

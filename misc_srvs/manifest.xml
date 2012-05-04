@@ -1,0 +1,14 @@
+<package>
+  <description brief="misc_srvs">
+
+     misc_srvs
+
+  </description>
+  <author>John Schulman</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/misc_srvs</url>
+
+</package>
+
+
