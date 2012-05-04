@@ -86,7 +86,7 @@ class FindCluster
    static const int ImageVerticalOffset = 20;
    static const int ImageHorizontalOffset = -5;
 
-   static const double VoxelizeLeafSize = 0.02;
+   static const double VoxelizeLeafSize = 0.03; //0.02
    static const double maxClusterLength = 0.4;
    static const double minDistanceAbovePlane = 0.0125;
    static const double minDistanceUnderPlane = -0.0125;
@@ -122,14 +122,19 @@ public:
     cloud_transformed_ptr.reset(new sensor_msgs::PointCloud2());
     transformationWorked = false;
 
+	ROS_INFO("SUBSCRIBING");
+
     capture_sub = cp.subscribe("/bolt/vision/capture", 1, &FindCluster::captureThis, this);
+
     cloud_sub = pt_.subscribe("cloud_in", 1, &FindCluster::cloudSCb, this);
     image_sub_ = it_.subscribe("image_in", 1, &FindCluster::imageSCb, this);
+
     image_pub_ = it_.advertise("/bolt/vision/image", 1);
     
+
     cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
     cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
-        
+
 
 
     cycleCountPcl = 0;
@@ -422,7 +427,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
   void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
   {
-
+	//ROS_INFO("PCL-Data");
 //input.header.frame_id
 //
 
@@ -433,17 +438,17 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 	   }
 	catch (tf::TransformException ex)
 	    {
-		
+		ROS_INFO("Transform Exception in Kinect find cluster");	
 	    }
 	
     if (cycleCountPcl%100 == 0)	
-	std::cerr << " new pcl data received " << std::endl;
+	ROS_INFO(" new pcl data received ");
 
 	  if (transformationWorked) {
-		cerr << " Transformation worked " << endl;
+	//	ROS_INFO(" Transformation worked ");
 		  sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
 	  } else {
-		cerr << " Transformation failed " << endl;
+	//	ROS_INFO(" Transformation failed ");
 		  sor.setInputCloud (input); //USED TO BE INPUT
 	  }
 
@@ -459,6 +464,7 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
   void imageSCb(const sensor_msgs::ImageConstPtr& msg)
   {
+
     std::vector<pcl::PointXYZRGB> rgbdPixelSet;
     std::vector<pcl::PointXYZRGB> planeRgbdPixelSet;
 
@@ -523,11 +529,14 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
 //ignore everything, matching the following criterion
 		double signedPointDistanceToSACPlane = signedPointPlaneDistance(cloudRGB.points[i].x, cloudRGB.points[i].y, cloudRGB.points[i].z, coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3]);
-		
+	
+	 if (cycleCountImg%100 == 0) {	
+		ROS_INFO("A: %f B: %f C: %f D: %f Cyc %d", coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3], cycleCountImg);
+	 }
 
-		if (true && (!((fabs(coeffManual[1]) > 0.75)))) {
-			break;	//ignore if table is not parallel to y,z plane 
-		}		//if points are on the table and cluster too - big --> paint it black
+//		if (true && (!((fabs(coeffManual[1]) > 0.75)))) {
+//			break;	//ignore if table is not parallel to y,z plane 
+//		}		//if points are on the table and cluster too - big --> paint it black
 
 
 	if (cloudRGB.points[i].z < 1.5) {
@@ -600,8 +609,8 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 
 //---------------------------------------------------------------B
 
-    sensor_msgs::PointCloud2 publishedCluster;
-    pcl::PointCloud<pcl::PointXYZRGB> publishClusterXYZ;
+    sensor_msgs::PointCloud2 publishedClusterPC2;
+    pcl::PointCloud<pcl::PointXYZRGB> publishCluster;
     pcl::PointXYZRGB helpPoint;
 
     geometry_msgs::Vector3 bestCluster;
@@ -626,18 +635,25 @@ void dumpOut(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& 
 		helpPoint.y = clusterSet.at(maxClusterID).points.at(j).y;
 		helpPoint.z = clusterSet.at(maxClusterID).points.at(j).z;
 
+                helpPoint.r = clusterSet.at(maxClusterID).points.at(j).r;
+                helpPoint.g = clusterSet.at(maxClusterID).points.at(j).g;
+                helpPoint.b = clusterSet.at(maxClusterID).points.at(j).b;
+
 		
-		publishClusterXYZ.push_back(helpPoint);
+		publishCluster.push_back(helpPoint);
 
 	}
     } else {
 	bestCluster.x = bestCluster.y = 0; bestCluster.z = 1;
     }
  
-    pcl::toROSMsg(publishClusterXYZ, publishedCluster);
-    cloud_percept.publish(publishedCluster); // is still empty
+    publishedClusterPC2.header.frame_id = "/base_link";
 
-    cerr << " Best Cluster: X: " << bestCluster.x << " | Y: " << bestCluster.y << " | Z: " << bestCluster.z << endl;
+    pcl::toROSMsg(publishCluster, publishedClusterPC2);
+    cloud_percept.publish(publishedClusterPC2); // is still empty
+
+    ROS_INFO(" Best Cluster: X: %f | Y: %f | Z: %f" ,bestCluster.x , bestCluster.y , bestCluster.z);
+//	ROS_INFO("FOO");
 
     cloud_vector.publish(bestCluster);
 
