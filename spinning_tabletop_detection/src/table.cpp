@@ -11,7 +11,7 @@
 using namespace std;
 using namespace Eigen;
 
-static const float MIN_HEIGHT=.9; // min height of table
+static const float MIN_HEIGHT=.85; // min height of table
 static const float MAX_HEIGHT=100; // max height of table
 static const float HIST_RES = .005; // histogram resolution for table finding
 static const float TABLE_POINTS_TOLERANCE=.025; // tolerance for making points part of table

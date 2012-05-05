@@ -19,6 +19,7 @@ public:
   std::vector<ColorCloudPtr> clusters;
   std::vector<int> ids;
   int smallest_unused_id;
+  std::vector<Eigen::VectorXf> cylinder_params;
   Eigen::MatrixXf circle_centers;
 
   TabletopTracker() : initialized(false) {}
