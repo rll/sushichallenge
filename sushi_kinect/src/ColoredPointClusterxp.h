@@ -27,6 +27,7 @@ class ColoredPointClusterxp {
 		points.clear();
 		trackingId = -1;
 		x0 = x1 = y0 = y1 = z0 = z1 = 0; //Boundaries
+		calculateMoments();
 	}
 
 	double getMaxClusterLength() {
@@ -44,6 +45,10 @@ class ColoredPointClusterxp {
 	}
 
 	void calculateMoments() {
+		   center.x = center.y = center.z = center.r = center.g = center.b = 0.0;
+    	   PointXYZRGB help;
+    	   help.x = help.y = help.z = help.r = help.g = help.b = 0.0;
+
 		
 		for (size_t i = 0; i < points.size(); i++) {
 		   center.x += points.at(i).x;
@@ -54,15 +59,15 @@ class ColoredPointClusterxp {
 		   center.b += points.at(i).b;
 
 		}		
+		if (points.size() > 0) {
 		   center.x /= points.size(); 
 		   center.y /= points.size(); 
 		   center.z /= points.size(); 
 		   center.r /= points.size(); 
 		   center.g /= points.size(); 
 		   center.b /= points.size(); 
-
+		}
 		
-		PointXYZRGB help; help.x = help.y = help.z = help.r = help.g = help.b = 0.0;
 		for (size_t i = 0; i < points.size(); i++) {	//variance calculation
 			help.x = help.x + (points.at(i).x - center.x) * (points.at(i).x - center.x);
 			help.y = help.y + (points.at(i).y - center.y) * (points.at(i).y - center.y);
@@ -72,12 +77,14 @@ class ColoredPointClusterxp {
 			help.b = help.b + (points.at(i).b - center.b) * (points.at(i).b - center.b);
 
 		}
+		if (points.size() > 0) {
 		  variances.x = help.x / points.size(); 
 		  variances.y = help.y / points.size(); 
 		  variances.z = help.z / points.size(); 
 		  variances.r = help.r / points.size(); 
 		  variances.g = help.g / points.size(); 
 		  variances.b = help.b / points.size(); 
+		}
 
 		x0 = x1 = center.x; y0 = y1 = center.y; z0 = z1 = center.z;  //reset values to center
 		for (size_t i = 0; i < points.size(); i++) {
