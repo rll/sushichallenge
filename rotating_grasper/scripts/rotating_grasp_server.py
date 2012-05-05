@@ -29,15 +29,6 @@ def handle_rotating_grasp(req):
     print 'received command:'
     print command
     
-    print 'opening gripper'
-    grip_client = actionlib.SimpleActionClient('r_gripper_controller/gripper_action', Pr2GripperCommandAction)
-    grip_client.wait_for_server()
-
-    grip_pos = 0.8
-    effort = -1
-    grip_client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position = grip_pos, max_effort = effort)))
-    result = grip_client.wait_for_result()
-    
     pub = rospy.Publisher('r_cart/command_pose', geometry_msgs.msg.PoseStamped)
     seq = 0
     
@@ -107,9 +98,9 @@ def handle_rotating_grasp(req):
         target = geometry_msgs.msg.PoseStamped()
         target.header.stamp = now
         target.header.frame_id = command.header.frame_id
-        target.pose.position.x = command.initial.x + math.cos(now_angle)*radius
-        target.pose.position.y = command.initial.y - math.sin(now_angle)*radius
-        target.pose.position.z = command.initial.z + offset
+        target.pose.position.x = command.center.x + math.cos(now_angle)*radius
+        target.pose.position.y = command.center.y - math.sin(now_angle)*radius
+        target.pose.position.z = command.center.z + offset
         
         
         q1 = quaternion_about_axis(math.pi/2,(0,1,0))
@@ -129,6 +120,16 @@ def handle_rotating_grasp(req):
 def rotating_grasp_server():
     rospy.init_node('rotating_grasp_server')
     s = rospy.Service('rotating_grasper', RotatingGrasper, handle_rotating_grasp)
+    
+    print 'opening gripper'
+    grip_client = actionlib.SimpleActionClient('r_gripper_controller/gripper_action', Pr2GripperCommandAction)
+    grip_client.wait_for_server()
+
+    grip_pos = 0.8
+    effort = -1
+    grip_client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position = grip_pos, max_effort = effort)))
+    result = grip_client.wait_for_result()
+    
     print "Ready for grasping"
     rospy.spin()
         
