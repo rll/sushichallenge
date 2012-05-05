@@ -98,7 +98,7 @@ class FindCluster
 	static const int ImageVerticalOffset = 2;
 	static const int ImageHorizontalOffset = -5;
 
-	static const double VoxelizeLeafSize = 0.05; //0.02
+	static const double VoxelizeLeafSize = 0.02; //0.02
 	static const double maxClusterLength = 0.4;
 	static const double minDistanceAbovePlane = 0.0125;
 	static const double minDistanceUnderPlane = -0.0125;
@@ -160,25 +160,29 @@ public:
 
 
 
-	void reducePointCloudByDistanceAndHeight(pcl::PointCloud<pcl::PointXYZRGB>& cloud, double distanceBoundary, double heightBoundary) {
+	void reducePointCloudByHeight(sensor_msgs::PointCloud2& cloud2, double height) {
+
+
+		pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
+		pcl::fromROSMsg(cloud2, cloud_toRosMsg);
 
 
 		size_t i = 0;
 
-		while (i < cloud.points.size()) {
+		while (i < cloud_toRosMsg.points.size()) {
 
 			if (
-					(cloud.points[i].z > distanceBoundary) ||
-					(cloud.points[i].y < -heightBoundary)
+					(cloud_toRosMsg.points[i].z < height)
+					
 			)
 			{
-
-				cloud.erase(cloud.begin()+i);
+				cloud_toRosMsg.erase(cloud_toRosMsg.begin()+i);
 
 			} else {
 				i++;
 			}
 		}
+		pcl::toROSMsg(cloud_toRosMsg, cloud2);
 
 	}
 
@@ -453,11 +457,10 @@ public:
 
 	void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
 	{
-		//ROS_INFO("PCL-Data");
-		//input.header.frame_id
-		//
-
-		// 	transformPointCloud (const std::string &target_frame, const sensor_msgs::PointCloud2 &in, sensor_msgs::PointCloud2 &out, const tf::TransformListener &tf_listener)
+		abovePlanePixelSet.clear();
+		onPlanePixelSet.clear();
+		abovePlaneClusterSet.clear();
+		onPlaneClusterSet.clear();
 
 		sourceFrameName = std::string(input->header.frame_id);
 
@@ -485,11 +488,14 @@ public:
 		sor.filter (cloud_voxelized);
 
 		cycleCountPcl++;
-//--------------------This is the end of the old method
+
+
+
+		reducePointCloudByHeight(cloud_voxelized, 0.50);
+
+
 
 		pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsg);
-
-		//copyPointCloud(cloud_xyz, cloud_xyzrgb);
 
 		double stepsize_1 = 0.1; double maxLocalNr_1 = 0; double maxLocalHeight_1 = 0;
 		for (double height_1 = 0.2; height_1 < 1.8; height_1 += stepsize_1) {
@@ -510,12 +516,12 @@ public:
 		coeffManual[0] = 0;
 		coeffManual[1] = 0;
 		coeffManual[2] = 1;
-		coeffManual[3] = 0.2;//-maxLocalHeight_2;
+		coeffManual[3] = -maxLocalHeight_2;
 
 
 		/* SAC Starts */
-	
-		/*
+	/*
+		
 		pcl::ModelCoefficients coefficients;
 		pcl::PointIndices inliers;
 		// Create the segmentation object
@@ -539,13 +545,12 @@ public:
 		} else {
 			ROS_INFO("RANSAC FAILED");
 		}
-		*/
-
+		
+*/
 		/* SAC End */
 
 
-		reducePointCloudByDistanceAndHeight(cloud_toRosMsg, 1.5, 0.5);
-
+		
 		pcl::PointXYZRGB rgbdPixel;
 		pcl::PointXYZRGB planeRgbdPixel;
 
