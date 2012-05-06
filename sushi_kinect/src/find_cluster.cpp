@@ -286,31 +286,47 @@ public:
 
 
 	/********************************************************************/
-	std::vector<ColoredPointClusterxp> singleLinkageClusterSet(std::vector<ColoredPointClusterxp> abovePlaneClusterSetIn, double distWeight, double colWeight, double distanceBound) {
-		for (size_t i = 0; i < abovePlaneClusterSetIn.size (); i++) {
+	void singleLinkageClusterSet(std::vector<ColoredPointClusterxp>& clusterSetIn, double distWeight, double colWeight, double distanceBound) {
+		for (size_t i = 0; i < clusterSetIn.size (); i++) {
 			size_t j = i + 1;
-			while (j < abovePlaneClusterSetIn.size ()) {
-				if (abovePlaneClusterSetIn.at(i).minClusterDistanceNorm(abovePlaneClusterSetIn.at(j), distWeight, colWeight) <= distanceBound) {
-					abovePlaneClusterSetIn.at(i).mergeWithCluster(abovePlaneClusterSetIn.at(j)); //merge
-					abovePlaneClusterSetIn.erase(abovePlaneClusterSetIn.begin()+j);  // ... delete,
+			while (j < clusterSetIn.size ()) {
+				if (clusterSetIn.at(i).minClusterDistanceNorm(clusterSetIn.at(j), distWeight, colWeight) <= distanceBound) {
+					clusterSetIn.at(i).mergeWithCluster(clusterSetIn.at(j)); //merge
+					clusterSetIn.erase(clusterSetIn.begin()+j);  // ... delete,
 				}
 				else {
 					j++;
 				}
 			}
 		}
-		return abovePlaneClusterSetIn;
+	}
+
+
+	/********************************************************************/
+	void singleLinkageClusterSetTwoSources(std::vector<ColoredPointClusterxp>& clusterSetIn_A, std::vector<ColoredPointClusterxp>& clusterSetIn_B, double distWeight, double colWeight, double distanceBound) {
+		for (size_t i = 0; i < clusterSetIn_A.size (); i++) {
+			size_t j = 0;
+			while (j < clusterSetIn_B.size ()) {
+				if (clusterSetIn_A.at(i).minClusterDistanceNorm(clusterSetIn_B.at(j), distWeight, colWeight) <= distanceBound) {
+					clusterSetIn_A.at(i).mergeWithCluster(clusterSetIn_B.at(j)); //merge
+					clusterSetIn_B.erase(clusterSetIn_B.begin()+j);  // ... delete,
+				}
+				else {
+					j++;
+				}
+			}
+		}
 	}
 
 
 
 	/********************************************************************/
 
-	void erasePlaneCluster(std::vector<ColoredPointClusterxp>& abovePlaneClusterSet, double maxClusterLength) {
-		for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
-			if (abovePlaneClusterSet.at(i).getMaxClusterLength() > maxClusterLength) {
-				//ROS_INFO("Erasing x: %f y: %f z: %f", abovePlaneClusterSet.at(i).center.x, abovePlaneClusterSet.at(i).center.y, abovePlaneClusterSet.at(i).center.z);
-				abovePlaneClusterSet.erase(abovePlaneClusterSet.begin() + i);
+	void erasePlaneCluster(std::vector<ColoredPointClusterxp>& clusterSet, double maxClusterLength) {
+		for (size_t i = 0; i < clusterSet.size(); i++) {
+			if (clusterSet.at(i).getMaxClusterLength() > maxClusterLength) {
+				//ROS_INFO("Erasing x: %f y: %f z: %f", clusterSet.at(i).center.x, clusterSet.at(i).center.y, clusterSet.at(i).center.z);
+				clusterSet.erase(clusterSet.begin() + i);
 			}
 		}
 	}
@@ -476,7 +492,7 @@ public:
 			ROS_INFO(":CloudSCb: New Pcl Data Received ");
 	}
 		if (transformationWorked) {
-			ROS_INFO(":CloudSCb: Transformation worked ");
+			//ROS_INFO(":CloudSCb: Transformation worked ");
 			sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
 		} else {
 			ROS_INFO(":CloudSCb: Transformation Failed ");
@@ -596,16 +612,30 @@ public:
 		abovePlaneClusterSet = createClusterSet(abovePlanePixelSet);
 		onPlaneClusterSet = createClusterSet(onPlanePixelSet);
 
-		ROS_INFO(":CloudSCb: 2 ");
+		ROS_INFO(":CloudSCb: 2 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 		double stepSize = 0.02;
 		double upperLimit = 0.2;
-		for (double a = stepSize; ((a < upperLimit) && (abovePlaneClusterSet.size() >= 2)); a += stepSize) {
-			abovePlaneClusterSet = singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.01, a);
-			onPlaneClusterSet = singleLinkageClusterSet(onPlaneClusterSet, 0.5, 0.01, a);
+		for (double a = stepSize; ((a < upperLimit) && (abovePlaneClusterSet.size() > 1)); a += stepSize) {
+			singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, a);
 		}
 
-		ROS_INFO(":CloudSCb: 4 ");
+		for (double a = stepSize; ((a < upperLimit) && (onPlaneClusterSet.size() > 1)); a += stepSize) {
+			singleLinkageClusterSet(onPlaneClusterSet, 0.5, 0.01, a);
+		}
+
+		erasePlaneCluster(onPlaneClusterSet, maxClusterLength);
+
+		ROS_INFO(":CloudSCb: 4 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
+
+
+		for (double a = stepSize; ((a < upperLimit) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a += stepSize) {
+			singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, a);
+		}
+
+		ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
+
+
 
 		//if (captureNow) {
 		//	dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, false);
@@ -614,15 +644,9 @@ public:
 
 		//---------------------------------------------------------------A
 
-		
-		erasePlaneCluster(onPlaneClusterSet, maxClusterLength);
 
 		//assignTrackingIds(abovePlaneClusterSet, lastabovePlaneClusterSet);
-
 		//assignTrackingIds(onPlaneClusterSet, lastonPlaneClusterSet);
-
-
-//////////////////////// cluster both...
 
 
 		sensor_msgs::PointCloud2 publishedClusterPC2;
@@ -632,10 +656,6 @@ public:
 		geometry_msgs::Vector3 bestCluster;
 		int maxClusterSize = 0;
 		int maxClusterID = 0;
-
-		//geometry_msgs::PoseArray poseArray;
-
-
 
 
 		if (abovePlaneClusterSet.size() > 0) {
