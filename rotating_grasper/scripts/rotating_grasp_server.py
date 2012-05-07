@@ -114,7 +114,7 @@ def handle_rotating_grasp(req):
         pub.publish(target)
         seq = seq + 1
         
-        rospy.sleep(0.5)
+        rospy.sleep(1/20.)
     return RotatingGrasperResponse(True)
     
 def rotating_grasp_server():
