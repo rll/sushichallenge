@@ -100,6 +100,7 @@ class FindCluster
 
 	static const double VoxelizeLeafSize = 0.02; //0.02
 	static const double maxClusterLength = 0.4;
+	static const double minClusterLength = 0.02;
 	static const double minDistanceAbovePlane = 0.0125;
 	static const double minDistanceUnderPlane = -0.0125;
 	static const double doRANSAC = true;
@@ -322,14 +323,30 @@ public:
 
 	/********************************************************************/
 
-	void erasePlaneCluster(std::vector<ColoredPointClusterxp>& clusterSet, double maxClusterLength) {
-		for (size_t i = 0; i < clusterSet.size(); i++) {
+	void eraseBigPlaneCluster(std::vector<ColoredPointClusterxp>& clusterSet) {
+		for (size_t i = 0; i < clusterSet.size();) {
+
 			if (clusterSet.at(i).getMaxClusterLength() > maxClusterLength) {
 				//ROS_INFO("Erasing x: %f y: %f z: %f", clusterSet.at(i).center.x, clusterSet.at(i).center.y, clusterSet.at(i).center.z);
 				clusterSet.erase(clusterSet.begin() + i);
-			}
+			} else {i++;}
 		}
 	}
+
+	/********************************************************************/
+
+	void eraseSmallPlaneCluster(std::vector<ColoredPointClusterxp>& clusterSet) {
+		for (size_t i = 0; i < clusterSet.size(); ) {
+
+			//ROS_INFO("Cluster %d length %f" , i , clusterSet.at(i).getMaxClusterLength());
+
+			if (clusterSet.at(i).getMaxClusterLength() < minClusterLength) {
+				//ROS_INFO("Erasing x: %f y: %f z: %f", clusterSet.at(i).center.x, clusterSet.at(i).center.y, clusterSet.at(i).center.z);
+				clusterSet.erase(clusterSet.begin() + i);
+			} else {i++;}
+		}
+	}
+
 
 
 	/********************************************************************/
@@ -463,6 +480,8 @@ public:
 				count++;
 			}
 		}
+
+		//ROS_INFO("In Count %f", count);
 		return count;
 	}
 
@@ -513,26 +532,124 @@ public:
 
 		pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsg);
 
-		double stepsize_1 = 0.1; double maxLocalNr_1 = 0; double maxLocalHeight_1 = 0;
-		for (double height_1 = 0.2; height_1 < 1.8; height_1 += stepsize_1) {
-			int number = countPointsInProximity(cloud_toRosMsg, stepsize_1, 0.0, 0.0, 1.0, -height_1);
+
+
+		double stepsize_1 = 0.1; 
+		int maxLocalNr_1 = 0; 
+		double maxLocalHeight_1 = 0;
+		double startHeight_1 = 0.2;
+		double stopHeight_1 = 1.8;
+
+		double vA = 0.0; double vB = 0.0; double vC = 1; double vD = 0; 
+
+		for (double height_1 = startHeight_1; height_1 < stopHeight_1; height_1 += stepsize_1) {
+			int number = countPointsInProximity(cloud_toRosMsg, 0.1, vA, vB, vC, -height_1);
 			if (number > maxLocalNr_1) {maxLocalHeight_1 = height_1; maxLocalNr_1 = number;}
 			//ROS_INFO("1 - Points in height %f, proximity %f, number %d ", height_1, stepsize_1, number);
 		}
 		//ROS_INFO("1 - Height: %f", maxLocalHeight_1);
 
-		double stepsize_2 = 0.01; double maxLocalNr_2 = 0; double maxLocalHeight_2 = 0;
+		double stepsize_2 = 0.01; 
+		int maxLocalNr_2 = 0; 
+		double maxLocalHeight_2 = 0;
+
 		for (double height_2 = maxLocalHeight_1 - stepsize_1; height_2 < maxLocalHeight_1 + stepsize_1; height_2 += stepsize_2) {
-			int number = countPointsInProximity(cloud_toRosMsg, stepsize_2, 0.0, 0.0, 1.0, -height_2);
+			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, vB, vC, -height_2);
 			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
 			//ROS_INFO("2 - Points in height %f, proximity %f, number %d ", height_2, stepsize_2, number);
 		}
-		//ROS_INFO("2 - Height: %f", maxLocalHeight_2);
+		//ROS_INFO("2.0 - Height: %f , Points: %d", maxLocalHeight_2, maxLocalNr_2);
 
-		coeffManual[0] = 0;
-		coeffManual[1] = 0;
-		coeffManual[2] = 1;
-		coeffManual[3] = -maxLocalHeight_2;
+		vD = -maxLocalHeight_2;
+
+// x - Axis -----------------------
+
+		double xAngleStep = 0.01; 
+		int xMaxPointsForAngle = 0;
+		double xBestLocalAngle = 0;
+		double xAngleStartValue = -0.05; 
+		double xAngleStopValue = 0.05; 
+
+		for (double xAngle = xAngleStartValue; xAngle < xAngleStopValue; xAngle += xAngleStep) {
+			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, cos(xAngle)*vB-sin(xAngle)*vC, sin(xAngle)*vB+cos(xAngle)*vC, vD);
+			if (number > xMaxPointsForAngle) {xBestLocalAngle = xAngle; xMaxPointsForAngle = number;}
+	//		ROS_INFO("xxxxx 3 - Points in angle %f, number %d ", xBestLocalAngle, xMaxPointsForAngle);
+		
+		}
+
+	//	ROS_INFO("3 - Points in angle %f, xMaxPointsForAngle %d ", xBestLocalAngle, xMaxPointsForAngle);
+
+
+
+//		0		1	0		0		0		
+//		-sin(a)	=	0	cos(a)    -sin(a)	*	0
+//		cos(a)		0	sin(a)	   cos(a)		1
+
+		vB =  cos(xBestLocalAngle)*vB-sin(xBestLocalAngle)*vC; 
+		vC =  sin(xBestLocalAngle)*vB+cos(xBestLocalAngle)*vC;
+
+
+// - Height Again 1
+
+		 stepsize_2 = 0.01; 
+		 maxLocalNr_2 = 0; 
+		 maxLocalHeight_2 = -vD;
+
+		for (double height_2 = maxLocalHeight_2 - stepsize_1; height_2 < maxLocalHeight_2 + stepsize_1; height_2 += stepsize_2) {
+			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, vB, vC, -height_2);
+			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
+					}
+	//	ROS_INFO("2.1 - Height: %f", maxLocalHeight_2);
+
+		vD = -maxLocalHeight_2;
+
+
+
+
+// y - Axis -----------------------
+
+		double yAngleStep = 0.01; 
+		int yMaxPointsForAngle = 0;
+		double yBestLocalAngle = 0;
+		double yAngleStartValue = -0.05; 
+		double yAngleStopValue = 0.05; 
+		
+		for (double yAngle = yAngleStartValue; yAngle < yAngleStopValue; yAngle += yAngleStep) {
+			int number = countPointsInProximity(cloud_toRosMsg, 0.01, cos(yAngle)*vA-sin(yAngle)*vC, vB, sin(yAngle)*vA+cos(yAngle)*vC, vD);
+			if (number > yMaxPointsForAngle) {yBestLocalAngle = yAngle; yMaxPointsForAngle = number;}
+		}
+
+	//	ROS_INFO("4 - Points in angle %f, yMaxPointsForAngle %d ", yBestLocalAngle, yMaxPointsForAngle);
+
+
+
+//		-sin(a)		cos(a)	0	  -sin(a)		0		
+//		0	=	0	1	       0	*	0
+//		cos(a)		sin(a)	0	   cos(a)		1
+
+		vA =  cos(yBestLocalAngle)*vA-sin(yBestLocalAngle)*vC; 
+		vC =  sin(yBestLocalAngle)*vA+cos(yBestLocalAngle)*vC;
+
+
+// - Height Again 2
+
+		 stepsize_2 = 0.01; 
+		 maxLocalNr_2 = 0; 
+		 maxLocalHeight_2 = -vD;
+
+		for (double height_2 = maxLocalHeight_2 - stepsize_1; height_2 < maxLocalHeight_2 + stepsize_1; height_2 += stepsize_2) {
+			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, vB, vC, -height_2);
+			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
+					}
+	//	ROS_INFO("2.2 - Height: %f", maxLocalHeight_2);
+
+		vD = -maxLocalHeight_2;
+
+
+		coeffManual[0] = vA;
+		coeffManual[1] = vB;
+		coeffManual[2] = vC;
+		coeffManual[3] = vD;
 
 
 		/* SAC Starts */
@@ -614,24 +731,34 @@ public:
 
 		ROS_INFO(":CloudSCb: 2 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
-		double stepSize = 0.02;
-		double upperLimit = 0.2;
-		for (double a = stepSize; ((a < upperLimit) && (abovePlaneClusterSet.size() > 1)); a += stepSize) {
-			singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, a);
+		//double stepSize = 0.02;
+		//double upperLimit = 0.2;
+		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1)); a++) {
+			singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, 0.2);
 		}
+		eraseBigPlaneCluster(abovePlaneClusterSet);
+		eraseSmallPlaneCluster(abovePlaneClusterSet);
 
-		for (double a = stepSize; ((a < upperLimit) && (onPlaneClusterSet.size() > 1)); a += stepSize) {
-			singleLinkageClusterSet(onPlaneClusterSet, 0.5, 0.01, a);
+
+//
+
+		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
+			singleLinkageClusterSet(onPlaneClusterSet, 2.0, 0.01, 0.2);
 		}
+		eraseBigPlaneCluster(onPlaneClusterSet);
+		eraseSmallPlaneCluster(onPlaneClusterSet);
 
-		erasePlaneCluster(onPlaneClusterSet, maxClusterLength);
 
 		ROS_INFO(":CloudSCb: 4 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 
-		for (double a = stepSize; ((a < upperLimit) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a += stepSize) {
-			singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, a);
+		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a ++) {
+			singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, 0.2);
 		}
+		eraseBigPlaneCluster(abovePlaneClusterSet);
+		eraseSmallPlaneCluster(abovePlaneClusterSet);
+
+
 
 		ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
