@@ -95,12 +95,12 @@ class FindCluster
 
 	static const double OpeningAngleHorizontal = 34.0 / 180.0 * 3.14159266;
 	static const double OpeningAngleVertical = 27.0 / 180.0 * 3.14159266;
-	static const int ImageVerticalOffset = 2;
-	static const int ImageHorizontalOffset = -5;
+	static const int ImageVerticalOffset = -2;
+	static const int ImageHorizontalOffset = 0;
 
-	static const double VoxelizeLeafSize = 0.02; //0.02
+	static const double VoxelizeLeafSize = 0.015; //0.02
 	static const double maxClusterLength = 0.4;
-	static const double minClusterLength = 0.02;
+	static const double minClusterLength = 0.1;
 	static const double minDistanceAbovePlane = 0.0125;
 	static const double minDistanceUnderPlane = -0.0125;
 	static const double doRANSAC = true;
@@ -174,7 +174,7 @@ public:
 
 			if (
 					(cloud_toRosMsg.points[i].z < height)
-					
+
 			)
 			{
 				cloud_toRosMsg.erase(cloud_toRosMsg.begin()+i);
@@ -492,12 +492,6 @@ public:
 
 	void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
 	{
-		abovePlanePixelSet.clear();
-		onPlanePixelSet.clear();
-		abovePlaneClusterSet.clear();
-		onPlaneClusterSet.clear();
-
-		sourceFrameName = std::string(input->header.frame_id);
 
 		try{
 			transformationWorked = pcl_ros::transformPointCloud("/base_link", *input, *cloud_transformed_ptr, listener);
@@ -509,29 +503,36 @@ public:
 
 		if (cycleCountPcl%10 == 0) {
 			ROS_INFO(":CloudSCb: New Pcl Data Received ");
-	}
+		}
 		if (transformationWorked) {
 			//ROS_INFO(":CloudSCb: Transformation worked ");
-			sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
+			
 		} else {
 			ROS_INFO(":CloudSCb: Transformation Failed ");
 			return;
 			//sor.setInputCloud (input); //USED TO BE INPUT
 		}
 
+	//clear clusterSets
+		abovePlanePixelSet.clear();
+		onPlanePixelSet.clear();
+		abovePlaneClusterSet.clear();
+		onPlaneClusterSet.clear();
+
+		sourceFrameName = std::string(input->header.frame_id);
+	
+	//Voxelization continues
+		sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
 		sor.setLeafSize (VoxelizeLeafSize, VoxelizeLeafSize, VoxelizeLeafSize);
 		sor.filter (cloud_voxelized);
 
 		cycleCountPcl++;
 
-
-
+	// delete all points closer 0.5 m to the ground
 		reducePointCloudByHeight(cloud_voxelized, 0.50);
 
-
-
+	//converte to RosPointCloud
 		pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsg);
-
 
 
 		double stepsize_1 = 0.1; 
@@ -562,7 +563,7 @@ public:
 
 		vD = -maxLocalHeight_2;
 
-// x - Axis -----------------------
+		// x - Axis -----------------------
 
 		double xAngleStep = 0.01; 
 		int xMaxPointsForAngle = 0;
@@ -573,75 +574,75 @@ public:
 		for (double xAngle = xAngleStartValue; xAngle < xAngleStopValue; xAngle += xAngleStep) {
 			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, cos(xAngle)*vB-sin(xAngle)*vC, sin(xAngle)*vB+cos(xAngle)*vC, vD);
 			if (number > xMaxPointsForAngle) {xBestLocalAngle = xAngle; xMaxPointsForAngle = number;}
-	//		ROS_INFO("xxxxx 3 - Points in angle %f, number %d ", xBestLocalAngle, xMaxPointsForAngle);
-		
+			//		ROS_INFO("xxxxx 3 - Points in angle %f, number %d ", xBestLocalAngle, xMaxPointsForAngle);
+
 		}
 
-	//	ROS_INFO("3 - Points in angle %f, xMaxPointsForAngle %d ", xBestLocalAngle, xMaxPointsForAngle);
+		//	ROS_INFO("3 - Points in angle %f, xMaxPointsForAngle %d ", xBestLocalAngle, xMaxPointsForAngle);
 
 
 
-//		0		1	0		0		0		
-//		-sin(a)	=	0	cos(a)    -sin(a)	*	0
-//		cos(a)		0	sin(a)	   cos(a)		1
+		//		0		1	0		0		0
+		//		-sin(a)	=	0	cos(a)    -sin(a)	*	0
+		//		cos(a)		0	sin(a)	   cos(a)		1
 
 		vB =  cos(xBestLocalAngle)*vB-sin(xBestLocalAngle)*vC; 
 		vC =  sin(xBestLocalAngle)*vB+cos(xBestLocalAngle)*vC;
 
 
-// - Height Again 1
+		// - Height Again 1
 
-		 stepsize_2 = 0.01; 
-		 maxLocalNr_2 = 0; 
-		 maxLocalHeight_2 = -vD;
+		stepsize_2 = 0.01;
+		maxLocalNr_2 = 0;
+		maxLocalHeight_2 = -vD;
 
 		for (double height_2 = maxLocalHeight_2 - stepsize_1; height_2 < maxLocalHeight_2 + stepsize_1; height_2 += stepsize_2) {
 			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, vB, vC, -height_2);
 			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
-					}
-	//	ROS_INFO("2.1 - Height: %f", maxLocalHeight_2);
+		}
+		//	ROS_INFO("2.1 - Height: %f", maxLocalHeight_2);
 
 		vD = -maxLocalHeight_2;
 
 
 
 
-// y - Axis -----------------------
+		// y - Axis -----------------------
 
 		double yAngleStep = 0.01; 
 		int yMaxPointsForAngle = 0;
 		double yBestLocalAngle = 0;
 		double yAngleStartValue = -0.05; 
 		double yAngleStopValue = 0.05; 
-		
+
 		for (double yAngle = yAngleStartValue; yAngle < yAngleStopValue; yAngle += yAngleStep) {
 			int number = countPointsInProximity(cloud_toRosMsg, 0.01, cos(yAngle)*vA-sin(yAngle)*vC, vB, sin(yAngle)*vA+cos(yAngle)*vC, vD);
 			if (number > yMaxPointsForAngle) {yBestLocalAngle = yAngle; yMaxPointsForAngle = number;}
 		}
 
-	//	ROS_INFO("4 - Points in angle %f, yMaxPointsForAngle %d ", yBestLocalAngle, yMaxPointsForAngle);
+		//	ROS_INFO("4 - Points in angle %f, yMaxPointsForAngle %d ", yBestLocalAngle, yMaxPointsForAngle);
 
 
 
-//		-sin(a)		cos(a)	0	  -sin(a)		0		
-//		0	=	0	1	       0	*	0
-//		cos(a)		sin(a)	0	   cos(a)		1
+		//		-sin(a)		cos(a)	0	  -sin(a)		0
+		//		0	=	0	1	       0	*	0
+		//		cos(a)		sin(a)	0	   cos(a)		1
 
 		vA =  cos(yBestLocalAngle)*vA-sin(yBestLocalAngle)*vC; 
 		vC =  sin(yBestLocalAngle)*vA+cos(yBestLocalAngle)*vC;
 
 
-// - Height Again 2
+		// - Height Again 2
 
-		 stepsize_2 = 0.01; 
-		 maxLocalNr_2 = 0; 
-		 maxLocalHeight_2 = -vD;
+		stepsize_2 = 0.01;
+		maxLocalNr_2 = 0;
+		maxLocalHeight_2 = -vD;
 
 		for (double height_2 = maxLocalHeight_2 - stepsize_1; height_2 < maxLocalHeight_2 + stepsize_1; height_2 += stepsize_2) {
 			int number = countPointsInProximity(cloud_toRosMsg, 0.01, vA, vB, vC, -height_2);
 			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
-					}
-	//	ROS_INFO("2.2 - Height: %f", maxLocalHeight_2);
+		}
+		//	ROS_INFO("2.2 - Height: %f", maxLocalHeight_2);
 
 		vD = -maxLocalHeight_2;
 
@@ -653,8 +654,8 @@ public:
 
 
 		/* SAC Starts */
-	/*
-		
+		/*
+
 		pcl::ModelCoefficients coefficients;
 		pcl::PointIndices inliers;
 		// Create the segmentation object
@@ -678,12 +679,12 @@ public:
 		} else {
 			ROS_INFO("RANSAC FAILED");
 		}
-		
-*/
+
+		 */
 		/* SAC End */
 
 
-		
+
 		pcl::PointXYZRGB rgbdPixel;
 		pcl::PointXYZRGB planeRgbdPixel;
 
@@ -725,7 +726,7 @@ public:
 
 		} // for every Point in cff
 
-		
+
 		abovePlaneClusterSet = createClusterSet(abovePlanePixelSet);
 		onPlaneClusterSet = createClusterSet(onPlanePixelSet);
 
@@ -740,10 +741,12 @@ public:
 		eraseSmallPlaneCluster(abovePlaneClusterSet);
 
 
-//
+		//
 
 		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
-			singleLinkageClusterSet(onPlaneClusterSet, 2.0, 0.01, 0.2);
+//			singleLinkageClusterSet(onPlaneClusterSet, 2.0, 0.01, 0.2);
+
+			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
 		}
 		eraseBigPlaneCluster(onPlaneClusterSet);
 		eraseSmallPlaneCluster(onPlaneClusterSet);
@@ -762,12 +765,6 @@ public:
 
 		ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
-
-
-		//if (captureNow) {
-		//	dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, false);
-		//	std::cerr << "Capturing ... Raw" << std::endl;
-		//}
 
 		//---------------------------------------------------------------A
 
@@ -865,19 +862,24 @@ public:
 			//drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
 			//drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
 		} else {
-			
+
+
+		if (captureNow) {
+			dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, false);
+			std::cerr << "Capturing ... Raw" << std::endl;
+		}
+
 			drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
 			drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
 
-			//trafo worked
 
 		}
 
-//		if (captureNow) {
-//			dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, true);
-//			std::cerr << "Capturing ... Debug" << std::endl;
-//			captureNow = false;
-//		}
+		if (captureNow) {
+			dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, true);
+			std::cerr << "Capturing ... Debug" << std::endl;
+			captureNow = false;
+		}
 
 		//---------------------------------------------------------------B
 
@@ -891,10 +893,10 @@ public:
 	/********************************************************************/
 
 	void transformClusterSet(std::vector<ColoredPointClusterxp>& sourceClusterSet, std::vector<ColoredPointClusterxp>& targetClusterSet) {
-	
+
 		pcl::PointCloud<pcl::PointXYZRGB> pointCloudSource;
 		pcl::PointCloud<pcl::PointXYZRGB> pointCloudTarget;
-		
+
 		ColoredPointClusterxp clusterTarget;
 		pcl::PointXYZRGB clusterPoint;
 
@@ -903,12 +905,12 @@ public:
 		for (size_t c = 0; c < sourceClusterSet.size(); c++)   {  // for all clusters
 			pointCloudSource.clear();
 			clusterTarget.clear();		
-		
-		for (size_t i = 0; i < sourceClusterSet.at(c).points.size(); i++) {
+
+			for (size_t i = 0; i < sourceClusterSet.at(c).points.size(); i++) {
 				clusterPoint = pcl::PointXYZRGB(sourceClusterSet.at(c).points.at(i));
 				pointCloudSource.push_back(clusterPoint);
 			}
-		
+
 			pcl::toROSMsg(pointCloudSource, source);
 			source.header.frame_id = std::string("/base_link");						
 
@@ -917,16 +919,16 @@ public:
 			} else {
 				//if (c == 0) {ROS_INFO("Back Transformation Success");}
 			}	
-		
+
 			pcl::fromROSMsg (target, pointCloudTarget);
-	
+
 			for (size_t i = 0; i < pointCloudTarget.size(); i++) {
 				clusterTarget.addElement(pcl::PointXYZRGB(pointCloudTarget.at(i)));
 			}
 
 			targetClusterSet.push_back(clusterTarget);
 		}
-	
+
 	}
 
 
@@ -934,7 +936,7 @@ public:
 	/********************************************************************/
 
 	void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& clusterSetOrigin, bool isOnTable = false) {
-		
+
 		std::vector<ColoredPointClusterxp> clusterSet;
 		if (transformationWorked) {		
 			transformClusterSet(clusterSetOrigin, clusterSet);
@@ -955,9 +957,9 @@ public:
 
 		for (size_t c = 0; c < clusterSet.size(); c++)   {  // for all clusters
 
-		//	if (clusterSet.at(c).points.size() < 10) {   //minClusterSize
-		//		continue;
-		//	}
+			//	if (clusterSet.at(c).points.size() < 10) {   //minClusterSize
+			//		continue;
+			//	}
 
 			//draw red rectangles around every cluster, then track:
 			calculateImagePositionFrom3dPoint(clusterSet.at(c).x0, clusterSet.at(c).y0, clusterSet.at(c).z0, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_xf0, pix_yf0);
@@ -1000,7 +1002,7 @@ public:
 
 					clusterSet.at(c).trackingId = c;
 
-//					ROS_INFO("C: %d , X %d , Y %d, Id %d ", c, pix_x, pix_y, foo);
+					//					ROS_INFO("C: %d , X %d , Y %d, Id %d ", c, pix_x, pix_y, foo);
 
 					if (clusterSet.at(c).trackingId % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 255));
 					if (clusterSet.at(c).trackingId % 8 == 1) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 255, 0));

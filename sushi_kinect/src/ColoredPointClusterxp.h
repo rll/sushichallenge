@@ -7,7 +7,7 @@ using namespace pcl;
 
 
 class ColoredPointClusterxp {
-	public:
+public:
 
 	vector<pcl::PointXYZRGB> points;
 	PointXYZRGB center;
@@ -31,43 +31,43 @@ class ColoredPointClusterxp {
 	}
 
 	double getMaxClusterLength() {
-		 if (fabs(x0 - x1) > fabs(y0 - y1)) {
+		if (fabs(x0 - x1) > fabs(y0 - y1)) {
 			if (fabs(x0 - x1) > fabs(z0 - z1)) {
 				return fabs(x0 - x1);
 			} else {
 				return fabs(z0 - z1);
 			}
-		 } else if  (fabs(y0 - y1) > fabs(z0 - z1)) {
-				return fabs(y0 - y1);
-			} else {
-				return fabs(z0 - z1);
-			}
+		} else if  (fabs(y0 - y1) > fabs(z0 - z1)) {
+			return fabs(y0 - y1);
+		} else {
+			return fabs(z0 - z1);
+		}
 	}
 
 	void calculateMoments() {
-		   center.x = center.y = center.z = center.r = center.g = center.b = 0.0;
-    	   PointXYZRGB help;
-    	   help.x = help.y = help.z = help.r = help.g = help.b = 0.0;
+		center.x = center.y = center.z = center.r = center.g = center.b = 0.0;
+		PointXYZRGB help;
+		help.x = help.y = help.z = help.r = help.g = help.b = 0.0;
 
-		
+
 		for (size_t i = 0; i < points.size(); i++) {
-		   center.x += points.at(i).x;
-		   center.y += points.at(i).y;
-		   center.z += points.at(i).z;
-		   center.r += points.at(i).r;
-		   center.g += points.at(i).g;
-		   center.b += points.at(i).b;
+			center.x += points.at(i).x;
+			center.y += points.at(i).y;
+			center.z += points.at(i).z;
+			center.r += points.at(i).r;
+			center.g += points.at(i).g;
+			center.b += points.at(i).b;
 
 		}		
 		if (points.size() > 0) {
-		   center.x /= points.size(); 
-		   center.y /= points.size(); 
-		   center.z /= points.size(); 
-		   center.r /= points.size(); 
-		   center.g /= points.size(); 
-		   center.b /= points.size(); 
+			center.x /= points.size();
+			center.y /= points.size();
+			center.z /= points.size();
+			center.r /= points.size();
+			center.g /= points.size();
+			center.b /= points.size();
 		}
-		
+
 		for (size_t i = 0; i < points.size(); i++) {	//variance calculation
 			help.x = help.x + (points.at(i).x - center.x) * (points.at(i).x - center.x);
 			help.y = help.y + (points.at(i).y - center.y) * (points.at(i).y - center.y);
@@ -78,12 +78,12 @@ class ColoredPointClusterxp {
 
 		}
 		if (points.size() > 0) {
-		  variances.x = help.x / points.size(); 
-		  variances.y = help.y / points.size(); 
-		  variances.z = help.z / points.size(); 
-		  variances.r = help.r / points.size(); 
-		  variances.g = help.g / points.size(); 
-		  variances.b = help.b / points.size(); 
+			variances.x = help.x / points.size();
+			variances.y = help.y / points.size();
+			variances.z = help.z / points.size();
+			variances.r = help.r / points.size();
+			variances.g = help.g / points.size();
+			variances.b = help.b / points.size();
 		}
 
 		x0 = x1 = center.x; y0 = y1 = center.y; z0 = z1 = center.z;  //reset values to center
@@ -95,7 +95,7 @@ class ColoredPointClusterxp {
 			if (points.at(i).z < z0) {z0 = points.at(i).z;}
 			if (points.at(i).z > z1) {z1 = points.at(i).z;}
 		}		
-			
+
 
 	}
 
@@ -122,10 +122,10 @@ class ColoredPointClusterxp {
 	double avgClusterDistanceNorm(ColoredPointClusterxp other, double spatialDistanceWeight, double coloredDistanceWeight) {
 		//average linkage
 		return max(
-			sqrt(pow(this->center.x - other.center.x, 2) +  pow(this->center.y - other.center.y, 2) + pow(this->center.z - other.center.z, 2)) * spatialDistanceWeight, 
-			sqrt(pow(this->center.r - other.center.r, 2) + pow(this->center.g - other.center.g, 2) + pow(this->center.b - other.center.b, 2))  * coloredDistanceWeight
+				sqrt(pow(this->center.x - other.center.x, 2) +  pow(this->center.y - other.center.y, 2) + pow(this->center.z - other.center.z, 2)) * spatialDistanceWeight,
+				sqrt(pow(this->center.r - other.center.r, 2) + pow(this->center.g - other.center.g, 2) + pow(this->center.b - other.center.b, 2))  * coloredDistanceWeight
 		); 	
-	  }
+	}
 
 
 
@@ -137,11 +137,11 @@ class ColoredPointClusterxp {
 		for (size_t i = 0; i < this->points.size(); i++) {
 			for (size_t j = 0; j < other.points.size(); j++) { 
 				dist = 
-			max(sqrt(pow(this->points.at(i).x - other.points.at(j).x, 2) +  pow(this->points.at(i).y - other.points.at(j).y, 2) + pow(this->points.at(i).z - other.points.at(j).z, 2)) * spatialDistanceWeight, 
-			sqrt(pow(this->points.at(i).r - other.points.at(j).r, 2) + pow(this->points.at(i).g - other.points.at(j).g, 2) + pow(this->points.at(i).b - other.points.at(j).b, 2))  * coloredDistanceWeight);
-			if (dist < minDistance) {
-				minDistance = dist;
-			}
+						max(sqrt(pow(this->points.at(i).x - other.points.at(j).x, 2) +  pow(this->points.at(i).y - other.points.at(j).y, 2) + pow(this->points.at(i).z - other.points.at(j).z, 2)) * spatialDistanceWeight,
+								sqrt(pow(this->points.at(i).r - other.points.at(j).r, 2) + pow(this->points.at(i).g - other.points.at(j).g, 2) + pow(this->points.at(i).b - other.points.at(j).b, 2))  * coloredDistanceWeight);
+				if (dist < minDistance) {
+					minDistance = dist;
+				}
 			}
 		}
 		return minDistance; 
@@ -151,10 +151,10 @@ class ColoredPointClusterxp {
 	double clusterDistanceNormForTracking(ColoredPointClusterxp other, double spatialDistanceWeight, double coloredDistanceWeight) {
 		//average linkage
 		return max(
-			sqrt(pow(this->center.x - other.center.x, 2) +  pow(this->center.y - other.center.y, 2) + pow(this->center.z - other.center.z, 2)) * spatialDistanceWeight, 
-			sqrt(pow(this->center.r - other.center.r, 2) + pow(this->center.g - other.center.g, 2) + pow(this->center.b - other.center.b, 2))  * coloredDistanceWeight
+				sqrt(pow(this->center.x - other.center.x, 2) +  pow(this->center.y - other.center.y, 2) + pow(this->center.z - other.center.z, 2)) * spatialDistanceWeight,
+				sqrt(pow(this->center.r - other.center.r, 2) + pow(this->center.g - other.center.g, 2) + pow(this->center.b - other.center.b, 2))  * coloredDistanceWeight
 		); 	
-  }
+	}
 }; // end coloredPointCluster
 
 
