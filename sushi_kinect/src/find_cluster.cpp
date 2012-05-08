@@ -30,6 +30,7 @@
 
 #include <geometry_msgs/Vector3.h>
 #include "std_msgs/String.h"
+#include "std_msgs/Float64MultiArray.h"
 #include "ColoredPointClusterxp.h"
 
 #include <tf/transform_listener.h>
@@ -71,8 +72,12 @@ class FindCluster
 	ros::NodeHandle n;
 	ros::NodeHandle n2;
 
+	ros::NodeHandle n_box;
+
 	ros::Publisher cloud_percept;
 	ros::Publisher cloud_vector;
+
+	ros::Publisher box_data;
 
 	sensor_msgs::PointCloud2 cloud_voxelized;
 
@@ -144,6 +149,8 @@ public:
 
 		cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
 		cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
+		box_data = n_box.advertise<std_msgs::Float64MultiArray>("bolt/vision/bounding_box_data", 10);
+		
 
 
 
@@ -763,7 +770,7 @@ public:
 
 
 
-		ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
+		//ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 
 		//---------------------------------------------------------------A
@@ -775,6 +782,9 @@ public:
 
 		sensor_msgs::PointCloud2 publishedClusterPC2;
 		pcl::PointCloud<pcl::PointXYZRGB> publishCluster;
+
+		std_msgs::Float64MultiArray bounding_box_data_to_publish;
+
 		pcl::PointXYZRGB helpPoint;
 
 		geometry_msgs::Vector3 bestCluster;
@@ -785,12 +795,28 @@ public:
 		if (abovePlaneClusterSet.size() > 0) { 
 			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
 				abovePlaneClusterSet.at(i).calcBoundingBox();	
+
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).center.x);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).center.y);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).center.z);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).boxDimensions.x);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).boxDimensions.y);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).boxDimensions.z);
+			bounding_box_data_to_publish.data.push_back(abovePlaneClusterSet.at(i).boxOrientationAngle);
+
 				//ROS_INFO("B A R 1 %d ", abovePlaneClusterSet.at(i).boundingBoxPoints.size());	
 				if ((int)abovePlaneClusterSet.at(i).points.size() > maxClusterSize) {
 					maxClusterID = i;
 					maxClusterSize = abovePlaneClusterSet.at(i).points.size();
 				}
 			}
+
+		
+
+
+
+
+
 			bestCluster.x = abovePlaneClusterSet.at(maxClusterID).center.x;
 			bestCluster.y = abovePlaneClusterSet.at(maxClusterID).center.y;
 			bestCluster.z = abovePlaneClusterSet.at(maxClusterID).center.z;
@@ -815,9 +841,21 @@ public:
 		if (onPlaneClusterSet.size() > 0) {
 			for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
 				onPlaneClusterSet.at(i).calcBoundingBox();
+
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).center.x);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).center.y);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).center.z);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).boxDimensions.x);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).boxDimensions.y);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).boxDimensions.z);
+			bounding_box_data_to_publish.data.push_back(onPlaneClusterSet.at(i).boxOrientationAngle);
 				//ROS_INFO("B A R 2 %d ", onPlaneClusterSet.at(i).boundingBoxPoints.size());		
 			}
 		}
+
+
+
+
 
 
 
@@ -825,6 +863,15 @@ public:
 		publishedClusterPC2.header.frame_id = std::string("/base_link");
 
 		cloud_percept.publish(publishedClusterPC2); // is still empty
+
+
+		box_data.publish(bounding_box_data_to_publish);
+
+
+//dim: [{label: 'x', size: 1234, stride: 1},{label: 'y', size: 1234,
+//stride: 1} ]
+
+		//bounding_box_data_to_publish.data[0] = 0.0; 
 
 		//ROS_INFO(" Best Cluster: X: %f | Y: %f | Z: %f" ,bestCluster.x , bestCluster.y , bestCluster.z);
 		//	ROS_INFO("FOO");

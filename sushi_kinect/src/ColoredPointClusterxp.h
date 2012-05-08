@@ -13,7 +13,7 @@ public:
 	PointXYZRGB center;
 	PointXYZRGB variances;
 	pcl::PointXYZ boxDimensions;
-	double boxOrientation;
+	double boxOrientationAngle;
 	vector<pcl::PointXYZ> boundingBoxPoints;
 
 
@@ -32,7 +32,7 @@ public:
 		x0 = x1 = y0 = y1 = z0 = z1 = 0; //Boundaries
 		calculateMoments();
 		boxDimensions.x = boxDimensions.y = boxDimensions.z = 0.0;
-		boxOrientation = 0.0;
+		boxOrientationAngle = 0.0;
 		boundingBoxPoints.clear();
 	}
 
@@ -195,40 +195,40 @@ public:
 		boxDimensions.x = maxX;
 		boxDimensions.y = maxY;
 		boxDimensions.z = maxZ;
-		boxOrientation = atan2(v0y, v0x);
+		boxOrientationAngle = atan2(v0y, v0x);
 		boundingBoxPoints.clear();
 		pcl::PointXYZ help, toPush;
 //1
 		help.x = maxX; help.y = maxY; help.z = maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)  + center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)  + center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //2
 		help.x = maxX; help.y = -maxY; help.z = maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation) + center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //3
 		help.x = -maxX; help.y = -maxY; help.z = maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation) + center.x; toPush.y = help.y * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.y * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //4
 		help.x = -maxX; help.y = maxY; help.z = maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //5
 		help.x = maxX; help.y = maxY; help.z = -maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //6
 		help.x = maxX; help.y = -maxY; help.z = -maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //7
 		help.x = -maxX; help.y = -maxY; help.z = -maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 //8
 		help.x = -maxX; help.y = maxY; help.z = -maxZ;
-		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 		
 
