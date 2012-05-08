@@ -12,7 +12,9 @@ public:
 	vector<pcl::PointXYZRGB> points;
 	PointXYZRGB center;
 	PointXYZRGB variances;
-	PointXYZRGB boundingBox2DProj;
+	pcl::PointXYZ boxDimensions;
+	double boxOrientation;
+	vector<pcl::PointXYZ> boundingBoxPoints;
 
 
 	double x0, x1, y0, y1, z0, z1;
@@ -29,6 +31,9 @@ public:
 		trackingId = -1;
 		x0 = x1 = y0 = y1 = z0 = z1 = 0; //Boundaries
 		calculateMoments();
+		boxDimensions.x = boxDimensions.y = boxDimensions.z = 0.0;
+		boxOrientation = 0.0;
+		boundingBoxPoints.clear();
 	}
 
 	double getMaxClusterLength() {
@@ -100,6 +105,7 @@ public:
 
 	
 	void calcBoundingBox() {
+		boundingBoxPoints.clear();
 		double a00 = 0.0; double a01 = 0.0;
 		double a10 = 0.0; double a11 = 0.0;
 		double p = 0; double q = 0; double lambda_0 = 0; double lambda_1 = 0;
@@ -185,6 +191,51 @@ public:
 
 		// float multi array
 		//center.x center.y center.z extend.x, extend.y, extend.z, angle
+		
+		boxDimensions.x = maxX;
+		boxDimensions.y = maxY;
+		boxDimensions.z = maxZ;
+		boxOrientation = atan2(v0y, v0x);
+		boundingBoxPoints.clear();
+		pcl::PointXYZ help, toPush;
+//1
+		help.x = maxX; help.y = maxY; help.z = maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)  + center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//2
+		help.x = maxX; help.y = -maxY; help.z = maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation) + center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//3
+		help.x = -maxX; help.y = -maxY; help.z = maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation) + center.x; toPush.y = help.y * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//4
+		help.x = -maxX; help.y = maxY; help.z = maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//5
+		help.x = maxX; help.y = maxY; help.z = -maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//6
+		help.x = maxX; help.y = -maxY; help.z = -maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//7
+		help.x = -maxX; help.y = -maxY; help.z = -maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+//8
+		help.x = -maxX; help.y = maxY; help.z = -maxZ;
+		toPush.x = help.x * cos(boxOrientation) - help.y * sin(boxOrientation)+ center.x; toPush.y = help.x * sin(boxOrientation) + help.y * cos(boxOrientation) + center.y; toPush.z = help.z + center.z;
+		boundingBoxPoints.push_back(toPush);
+		
+
+		//for (size_t i = 0; i < boundingBoxPoints.size(); i++) {
+		//	ROS_INFO(" Dimensions: %f , %f , %f,| %f, %f, %f ", boundingBoxPoints.at(i).x, boundingBoxPoints.at(i).y, boundingBoxPoints.at(i).z, maxX, maxY, maxZ);
+		//}
+
 	}
 
 

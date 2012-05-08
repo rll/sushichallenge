@@ -782,9 +782,10 @@ public:
 		int maxClusterID = 0;
 
 
-		if (abovePlaneClusterSet.size() > 0) {  // also todo for onPlane
+		if (abovePlaneClusterSet.size() > 0) { 
 			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
-				abovePlaneClusterSet.at(i).calcBoundingBox();		
+				abovePlaneClusterSet.at(i).calcBoundingBox();	
+				//ROS_INFO("B A R 1 %d ", abovePlaneClusterSet.at(i).boundingBoxPoints.size());	
 				if ((int)abovePlaneClusterSet.at(i).points.size() > maxClusterSize) {
 					maxClusterID = i;
 					maxClusterSize = abovePlaneClusterSet.at(i).points.size();
@@ -808,6 +809,14 @@ public:
 			}
 		} else {
 			bestCluster.x = bestCluster.y = 0; bestCluster.z = 1;
+		}
+
+//****************************************
+		if (onPlaneClusterSet.size() > 0) {
+			for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
+				onPlaneClusterSet.at(i).calcBoundingBox();
+				//ROS_INFO("B A R 2 %d ", onPlaneClusterSet.at(i).boundingBoxPoints.size());		
+			}
 		}
 
 
@@ -873,6 +882,9 @@ public:
 			drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
 			drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
 
+//			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
+//				ROS_INFO("ClusterSize %d , %d " , i, abovePlaneClusterSet.at(i).boundingBoxPoints.size());
+//			}
 
 		}
 
@@ -896,24 +908,43 @@ public:
 	void transformClusterSet(std::vector<ColoredPointClusterxp>& sourceClusterSet, std::vector<ColoredPointClusterxp>& targetClusterSet) {
 
 		pcl::PointCloud<pcl::PointXYZRGB> pointCloudSource;
+		pcl::PointCloud<pcl::PointXYZ> bbPointCloudSource;
 		pcl::PointCloud<pcl::PointXYZRGB> pointCloudTarget;
+		pcl::PointCloud<pcl::PointXYZ> bbPointCloudTarget;
+
 
 		ColoredPointClusterxp clusterTarget;
+
 		pcl::PointXYZRGB clusterPoint;
+		pcl::PointXYZ bbPoint;
 
 		sensor_msgs::PointCloud2 source, target;
+		sensor_msgs::PointCloud2 bbSource, bbTarget;
+
 
 		for (size_t c = 0; c < sourceClusterSet.size(); c++)   {  // for all clusters
 			pointCloudSource.clear();
-			clusterTarget.clear();		
+			bbPointCloudSource.clear();
+			clusterTarget.clear();
+	
 
 			for (size_t i = 0; i < sourceClusterSet.at(c).points.size(); i++) {
 				clusterPoint = pcl::PointXYZRGB(sourceClusterSet.at(c).points.at(i));
 				pointCloudSource.push_back(clusterPoint);
 			}
 
+			//boundingBox
+			for (size_t i = 0; i < sourceClusterSet.at(c).boundingBoxPoints.size(); i++) {
+				bbPoint = pcl::PointXYZ(sourceClusterSet.at(c).boundingBoxPoints.at(i));
+				bbPointCloudSource.push_back(bbPoint);
+			}
+
 			pcl::toROSMsg(pointCloudSource, source);
+			pcl::toROSMsg(bbPointCloudSource, bbSource);
+
 			source.header.frame_id = std::string("/base_link");						
+			bbSource.header.frame_id = std::string("/base_link");						
+
 
 			if (pcl_ros::transformPointCloud(sourceFrameName, source, target, listener) == false) {
 				if (c == 0) {ROS_INFO("Back Transformation Error");}
@@ -921,11 +952,28 @@ public:
 				//if (c == 0) {ROS_INFO("Back Transformation Success");}
 			}	
 
+			if (pcl_ros::transformPointCloud(sourceFrameName, bbSource, bbTarget, listener) == false) {
+				if (c == 0) {ROS_INFO("Back Transformation Error");}
+			} else {
+				//if (c == 0) {ROS_INFO("Back Transformation Success");}
+			}	
+
+
 			pcl::fromROSMsg (target, pointCloudTarget);
+			pcl::fromROSMsg (bbTarget, bbPointCloudTarget);
+
 
 			for (size_t i = 0; i < pointCloudTarget.size(); i++) {
 				clusterTarget.addElement(pcl::PointXYZRGB(pointCloudTarget.at(i)));
 			}
+
+
+			for (size_t i = 0; i < bbPointCloudTarget.size(); i++) {
+				clusterTarget.boundingBoxPoints.push_back(pcl::PointXYZ(bbPointCloudTarget.at(i)));
+			}
+
+
+//			clusterTarget.boundingBoxPoints = std::vector<pcl::PointXYZ>(bbPointCloudTarget);
 
 			targetClusterSet.push_back(clusterTarget);
 		}
@@ -947,49 +995,46 @@ public:
 
 		int pix_x = 0;
 		int pix_y = 0;
-		int pix_xf0 = 0;
-		int pix_yf0 = 0;
-		int pix_xf1 = 0;
-		int pix_yf1 = 0;
-		int pix_xh0 = 0;
-		int pix_yh0 = 0;
-		int pix_xh1 = 0;
-		int pix_yh1 = 0;
-
+		vector<cv::Point> boundingBoxPointsImgPlane;
+	
+		
 		for (size_t c = 0; c < clusterSet.size(); c++)   {  // for all clusters
+			boundingBoxPointsImgPlane.clear();
 
-			//	if (clusterSet.at(c).points.size() < 10) {   //minClusterSize
-			//		continue;
-			//	}
+			//ROS_INFO(" Numof R3 BP: %d ", clusterSet.at(c).boundingBoxPoints.size());		
 
-			//draw red rectangles around every cluster, then track:
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).x0, clusterSet.at(c).y0, clusterSet.at(c).z0, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_xf0, pix_yf0);
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).x1, clusterSet.at(c).y1, clusterSet.at(c).z0, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_xf1, pix_yf1);
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).x0, clusterSet.at(c).y0, clusterSet.at(c).z1, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_xh0, pix_yh0);
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).x1, clusterSet.at(c).y1, clusterSet.at(c).z1, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_xh1, pix_yh1);
+			for (size_t p = 0; p < clusterSet.at(c).boundingBoxPoints.size(); p++) {
+				calculateImagePositionFrom3dPoint(clusterSet.at(c).boundingBoxPoints.at(p).x, clusterSet.at(c).boundingBoxPoints.at(p).y, clusterSet.at(c).boundingBoxPoints.at(p).z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x, pix_y);			
 
-			if ((isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_xf0, pix_yf0)) &&
-					(isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_xf1, pix_yf1)) &&
-					(isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_xh0, pix_yh0)) &&
-					(isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_xh1, pix_yh1))) {
-				cv::Point pointPx0y0z0(pix_xf0, pix_yf0);
-				cv::Point pointPx1y1z0(pix_xf1, pix_yf1);
-				cv::Point pointPx0y0z1(pix_xh0, pix_yh0);
-				cv::Point pointPx1y1z1(pix_xh1, pix_yh1);
+			//ROS_INFO("c %d Transform p. bbp %d , x %d, y %d " , c, p, pix_x, pix_y);
 
-				if (!isOnTable) {
-					cv::rectangle(cv_ptr->image, pointPx0y0z0, pointPx1y1z0, CV_RGB(255, 0, 0));
-					cv::rectangle(cv_ptr->image, pointPx0y0z1, pointPx1y1z1, CV_RGB(0, 0, 0));
-					cv::line(cv_ptr->image, pointPx0y0z0, pointPx0y0z1, CV_RGB(127, 0, 0));
-					cv::line(cv_ptr->image, pointPx1y1z0, pointPx1y1z1, CV_RGB(127, 0, 0));
-				} else {
-					cv::rectangle(cv_ptr->image, pointPx0y0z0, pointPx1y1z0, CV_RGB(0, 0, 255));
-					cv::rectangle(cv_ptr->image, pointPx0y0z1, pointPx1y1z1, CV_RGB(0, 0, 0));
-					cv::line(cv_ptr->image, pointPx0y0z0, pointPx0y0z1, CV_RGB(0, 0, 127));
-					cv::line(cv_ptr->image, pointPx1y1z0, pointPx1y1z1, CV_RGB(0, 0, 127));
+				if (isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, 0, 0, pix_x, pix_y)) {
+					cv::Point pointP(pix_x, pix_y);
+					boundingBoxPointsImgPlane.push_back(pointP);
 				}
+					
 			}
 
+		
+			//ROS_INFO("Numof BBP: %d ", boundingBoxPointsImgPlane.size());		
+
+			if (boundingBoxPointsImgPlane.size() == 8) {
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(1), CV_RGB(250, 250, 250));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(2), CV_RGB(250, 250, 250));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(3), CV_RGB(250, 250, 250));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(0), CV_RGB(250, 250, 250));
+
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(4), CV_RGB(250, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(5), CV_RGB(250, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(6), CV_RGB(250, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(7), CV_RGB(250, 50, 50));
+
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(4), boundingBoxPointsImgPlane.at(5), CV_RGB(50, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(5), boundingBoxPointsImgPlane.at(6), CV_RGB(50, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(6), boundingBoxPointsImgPlane.at(7), CV_RGB(50, 50, 50));
+				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(7), boundingBoxPointsImgPlane.at(4), CV_RGB(50, 50, 50));
+			}
+		
 
 
 			for (size_t i = 0; i < clusterSet.at(c).points.size(); i++) {
@@ -1018,27 +1063,6 @@ public:
 			} // for all points
 
 
-			int pix_x1, pix_x2, pix_y1, pix_y2;
-
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).center.x-sqrt(clusterSet.at(c).variances.x), clusterSet.at(c).center.y-sqrt(clusterSet.at(c).variances.y), clusterSet.at(c).center.z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x1, pix_y1);
-
-			calculateImagePositionFrom3dPoint(clusterSet.at(c).center.x+sqrt(clusterSet.at(c).variances.x), clusterSet.at(c).center.y+sqrt(clusterSet.at(c).variances.y), clusterSet.at(c).center.z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x2, pix_y2);
-
-			int pixs = 0;
-			if ((isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, pixs, pixs, pix_x1, pix_y1)) &&
-					(isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, pixs, pixs, pix_x2, pix_y2)))
-			{
-				cv::Point pointP1(pix_x1 - pixs, pix_y1 - pixs);
-				cv::Point pointP2(pix_x2 + pixs, pix_y2 + pixs);
-				if (clusterSet.at(c).trackingId % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 255));
-				if (clusterSet.at(c).trackingId % 8 == 1) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 255, 0));
-				if (clusterSet.at(c).trackingId % 8 == 2) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 0));
-				if (clusterSet.at(c).trackingId % 8 == 3) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 255));
-				if (clusterSet.at(c).trackingId % 8 == 4) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(128, 255, 0));
-				if (clusterSet.at(c).trackingId % 8 == 5) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 255));
-				if (clusterSet.at(c).trackingId % 8 == 6) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(128, 0, 255));
-				if (clusterSet.at(c).trackingId % 8 == 7) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 128, 255));
-			}
 		} // for all clusters
 	}
 
