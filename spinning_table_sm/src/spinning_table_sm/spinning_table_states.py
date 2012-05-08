@@ -15,6 +15,18 @@ from rotating_grasper.srv import *
 
 from geometry_msgs.msg import Point,PointStamped
 
+class MoveArmToSide(smach.State):
+    def __init__(self, tasks):
+        smach.State.__init__(self, outcomes=["success", "failure"])
+        self.tasks = tasks
+
+    def execute(self, userdata):
+        try:
+            self.tasks.move_arm_to_side('right_arm')
+        except:
+            return "failure"
+        return "success"
+
 class GatherDetections(smach.State):
     def __init__(self,detector=None):
         smach.State.__init__(self, outcomes=["success", "failure"],output_keys=["cylinders"])
@@ -61,6 +73,7 @@ class FitCircle(smach.State):
     def execute(self, userdata):
         print 'fitting circle'
         times = []
+        times_mat = mat(ones((len(userdata.cylinders),1)))
         x = mat(ones((len(userdata.cylinders),1)))
         y = mat(ones((len(userdata.cylinders),1)))
         z = ones(len(userdata.cylinders))
@@ -71,6 +84,7 @@ class FitCircle(smach.State):
             z[i] = userdata.cylinders[i][0].point.z
             r[i] = userdata.cylinders[i][1]
             times.append(userdata.cylinders[i][0].header.stamp)
+            times_mat[i,0] = userdata.cylinders[i][0].header.stamp.to_sec()
         
         A = hstack([x, y, mat(ones(x.shape))])
         b = -(power(x,2)+power(y,2))
@@ -80,9 +94,24 @@ class FitCircle(smach.State):
         zc = mean(z)
         R  =  sqrt((a[0]**2+a[1]**2)/4-a[2]) + mean(r);
         
+        angles = mat(ones((len(userdata.cylinders),1)))
+        for i in range(len(userdata.cylinders)):
+            angles[i,0] = math.atan2(y[i,0]-yc,x[i,0]-xc)
+        prev_angle = angles[0,0]
+        for i in range(len(userdata.cylinders)):
+            if angles[i,0] < prev_angle:
+                angles[i,0] = angles[i,0] + 2*math.pi
+        print angles
+        A_angles = hstack([times_mat,mat(ones(angles.shape))])
+        w_result = asarray(linalg.lstsq(A_angles,angles)[0])
+        w = w_result[0]
+        print 'rotation rate: %.3f rad/s - one revolution in %.2f sec' % (w,2*math.pi/w)
+        print w_result
+        w = 2 * math.pi / 30
+        
         userdata.center = Point(xc,yc,zc)
         userdata.radius = R
-        userdata.rotation_rate = 2 * math.pi / 30 #TODO: fix
+        userdata.rotation_rate = w
         userdata.init_angle = math.atan2(y[0,0]-yc,x[0,0]-xc)
         userdata.init_time = times[0]
         

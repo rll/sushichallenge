@@ -14,10 +14,19 @@ from spinning_table_sm import spinning_table_states
 
 import misc_msgs
 
-def create_sm():
+from pr2_tasks.tasks import Tasksfrom pr2_tasks.tasks import Tasks
+
+def create_sm(tasks):
     sm = smach.StateMachine(outcomes=["success",
                                       "failure"])
     with sm:
+        smach.StateMachine.add("move_arm",
+                    spinning_table_states.MoveArmToSide(),
+                    transitions = {"success":"detect",
+                                   "failure":"failure"
+                                  }
+                    )
+                    
         smach.StateMachine.add("detect",
                     spinning_table_states.GatherDetections(),
                     transitions = {"success":"fit_circle",
@@ -43,7 +52,9 @@ def create_sm():
 if __name__ == '__main__':
     rospy.init_node("spinning_table_sm", anonymous=True)
     
-    sm = create_sm()
+    tasks = Tasks()
+    
+    sm = create_sm(tasks)
     
     outcome = sm.execute()
     rospy.loginfo("Outcome: %s", outcome)
