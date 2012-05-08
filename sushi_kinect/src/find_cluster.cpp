@@ -449,13 +449,13 @@ public:
 			myfile.open (strstr2.str().c_str());
 
 			for (size_t j = 0; j < onPlanePixelSet.size(); j++) {
-				myfile << onPlanePixelSet.at(j).x << ","<< onPlanePixelSet.at(j).y <<","<< onPlanePixelSet.at(j).z <<","<< onPlanePixelSet.at(j).r << ","<< onPlanePixelSet.at(j).g <<","<< onPlanePixelSet.at(j).b <<","<< 0 <<"\n";
+				myfile << onPlanePixelSet.at(j).x << ","<< onPlanePixelSet.at(j).y <<","<< onPlanePixelSet.at(j).z <<","<< (int)onPlanePixelSet.at(j).r << ","<< (int)onPlanePixelSet.at(j).g <<","<< (int)onPlanePixelSet.at(j).b <<","<< 0 <<"\n";
 			}
 
 			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
 
 				for (size_t j = 0; j < abovePlaneClusterSet.at(i).points.size(); j++) {
-					myfile << abovePlaneClusterSet.at(i).points.at(j).x << ","<<abovePlaneClusterSet.at(i).points.at(j).y <<","<<abovePlaneClusterSet.at(i).points.at(j).z <<","<< abovePlaneClusterSet.at(i).points.at(j).r << ","<<abovePlaneClusterSet.at(i).points.at(j).g <<","<<abovePlaneClusterSet.at(i).points.at(j).b<<","<<i + 1<<"\n";
+					myfile << abovePlaneClusterSet.at(i).points.at(j).x << ","<<abovePlaneClusterSet.at(i).points.at(j).y <<","<<abovePlaneClusterSet.at(i).points.at(j).z <<","<< (int)abovePlaneClusterSet.at(i).points.at(j).r << ","<<(int)abovePlaneClusterSet.at(i).points.at(j).g <<","<<(int)abovePlaneClusterSet.at(i).points.at(j).b<<","<<i + 1<<"\n";
 				}
 			}
 
@@ -1050,14 +1050,14 @@ public:
 
 					//					ROS_INFO("C: %d , X %d , Y %d, Id %d ", c, pix_x, pix_y, foo);
 
-					if (clusterSet.at(c).trackingId % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 255));
+					if (clusterSet.at(c).trackingId % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 0));
 					if (clusterSet.at(c).trackingId % 8 == 1) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 255, 0));
 					if (clusterSet.at(c).trackingId % 8 == 2) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 0));
-					if (clusterSet.at(c).trackingId % 8 == 3) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 255));
-					if (clusterSet.at(c).trackingId % 8 == 4) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(128, 255, 0));
-					if (clusterSet.at(c).trackingId % 8 == 5) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 255));
-					if (clusterSet.at(c).trackingId % 8 == 6) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(128, 0, 255));
-					if (clusterSet.at(c).trackingId % 8 == 7) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 128, 255));
+					if (clusterSet.at(c).trackingId % 8 == 3) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 255));
+					if (clusterSet.at(c).trackingId % 8 == 4) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 255));
+					if (clusterSet.at(c).trackingId % 8 == 5) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 255));
+					if (clusterSet.at(c).trackingId % 8 == 6) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 128, 255));
+					if (clusterSet.at(c).trackingId % 8 == 7) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 128, 128));
 
 				} // if point is in image
 			} // for all points
