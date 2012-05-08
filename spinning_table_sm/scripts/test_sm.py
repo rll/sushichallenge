@@ -14,14 +14,14 @@ from spinning_table_sm import spinning_table_states
 
 import misc_msgs
 
-from pr2_tasks.tasks import Tasksfrom pr2_tasks.tasks import Tasks
+from pr2_tasks.tasks import Tasks
 
 def create_sm(tasks):
     sm = smach.StateMachine(outcomes=["success",
                                       "failure"])
     with sm:
         smach.StateMachine.add("move_arm",
-                    spinning_table_states.MoveArmToSide(),
+                    spinning_table_states.MoveArmToSide(tasks),
                     transitions = {"success":"detect",
                                    "failure":"failure"
                                   }

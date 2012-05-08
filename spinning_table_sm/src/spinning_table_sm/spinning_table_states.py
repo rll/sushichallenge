@@ -13,7 +13,14 @@ from misc_msgs.msg import *
 from rotating_grasper.msg import *
 from rotating_grasper.srv import *
 
-from geometry_msgs.msg import Point,PointStamped
+from geometry_msgs.msg import Point,PointStamped,PolygonStamped
+
+def fix_angle(angle, center_point=math.pi):
+    while angle > center_point + math.pi:
+        angle = angle - 2*math.pi
+    while angle < center_point - math.pi:
+        angle = angle + 2*math.pi
+    return angle
 
 class MoveArmToSide(smach.State):
     def __init__(self, tasks):
@@ -84,7 +91,7 @@ class FitCircle(smach.State):
             z[i] = userdata.cylinders[i][0].point.z
             r[i] = userdata.cylinders[i][1]
             times.append(userdata.cylinders[i][0].header.stamp)
-            times_mat[i,0] = userdata.cylinders[i][0].header.stamp.to_sec()
+            times_mat[i,0] = userdata.cylinders[i][0].header.stamp.to_sec() - userdata.cylinders[0][0].header.stamp.to_sec()
         
         A = hstack([x, y, mat(ones(x.shape))])
         b = -(power(x,2)+power(y,2))
@@ -92,22 +99,30 @@ class FitCircle(smach.State):
         xc = -.5 * a[0];
         yc = -.5 * a[1];
         zc = mean(z)
-        R  =  sqrt((a[0]**2+a[1]**2)/4-a[2]) + mean(r);
+        center_radius = sqrt((a[0]**2+a[1]**2)/4-a[2])
+        object_radius = mean(r)
+        R  =  center_radius + object_radius
+        
+        middle_ind = round(len(userdata.cylinders)/2.)
+        print "len %d middle ind %d" % (len(userdata.cylinders),middle_ind)
+        middle_angle = math.atan2(y[middle_ind,0]-yc,x[middle_ind,0]-xc)
         
         angles = mat(ones((len(userdata.cylinders),1)))
         for i in range(len(userdata.cylinders)):
-            angles[i,0] = math.atan2(y[i,0]-yc,x[i,0]-xc)
-        prev_angle = angles[0,0]
-        for i in range(len(userdata.cylinders)):
-            if angles[i,0] < prev_angle:
-                angles[i,0] = angles[i,0] + 2*math.pi
-        print angles
+            angles[i,0] = fix_angle(math.atan2(y[i,0]-yc,x[i,0]-xc),middle_angle)
+        # prev_angle = angles[0,0]
+        # for i in range(len(userdata.cylinders)):
+            # while angles[i,0] < prev_angle:
+                # angles[i,0] = angles[i,0] + 2*math.pi
+            # prev_angle = angles[i,0]
         A_angles = hstack([times_mat,mat(ones(angles.shape))])
+        
+        #print hstack([A_angles,angles])
+        
         w_result = asarray(linalg.lstsq(A_angles,angles)[0])
-        w = w_result[0]
+        w = -w_result[0]
         print 'rotation rate: %.3f rad/s - one revolution in %.2f sec' % (w,2*math.pi/w)
-        print w_result
-        w = 2 * math.pi / 30
+        #w = 2 * math.pi / 30.
         
         userdata.center = Point(xc,yc,zc)
         userdata.radius = R
@@ -115,7 +130,22 @@ class FitCircle(smach.State):
         userdata.init_angle = math.atan2(y[0,0]-yc,x[0,0]-xc)
         userdata.init_time = times[0]
         
-        print 'got center (%.3f,%.3f,%.3f) and radius %.3f' % (xc,yc,zc,R)
+        polygon_pub = rospy.Publisher('/fit_circle', geometry_msgs.msg.PolygonStamped)
+        polygon1 = PolygonStamped()
+        polygon1.header.stamp = rospy.Time.now()
+        polygon1.header.frame_id = 'base_footprint'
+        polygon2 = PolygonStamped()
+        polygon2.header.stamp = rospy.Time.now()
+        polygon2.header.frame_id = 'base_footprint'
+        for angle in linspace(0,2*math.pi,math.pi/8.):
+            pt1 = Point(xc+center_radius+math.cos(angle),yc+center_radius+math.sin(angle),zc)
+            pt2 = Point(xc+R+math.cos(angle),yc+R+math.sin(angle),zc)
+            polygon1.polygon.points.append(pt1)
+            polygon2.polygon.points.append(pt2)
+        polygon_pub.publish(polygon1)
+        polygon_pub.publish(polygon2)
+        
+        print 'got center (%.3f,%.3f,%.3f), radius %.3f + %.3f = %.3f' % (xc,yc,zc,center_radius,object_radius,R)
         return "success"
 
 class ExecuteGrasp(smach.State):
@@ -143,6 +173,7 @@ class ExecuteGrasp(smach.State):
         command.initial.z = center.z
         
         command.rotation_rate = rotation_rate
+        command.outward_angle = math.pi/2.3
         
         print 'waiting for service'
         rospy.wait_for_service('rotating_grasper')
