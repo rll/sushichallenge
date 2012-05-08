@@ -103,7 +103,7 @@ public:
 		}		
 	}
 
-	
+
 	void calcBoundingBox() {
 		boundingBoxPoints.clear();
 		double a00 = 0.0; double a01 = 0.0;
@@ -116,19 +116,19 @@ public:
 		PointXYZRGB err; err.x = err.y = 0;
 
 		if (points.size() > 0) {
-		for (size_t i = 0; i < points.size(); i++) {
-			err.x = points.at(i).x - center.x;
-			err.y = points.at(i).y - center.y;
-			
-			a00 += err.x * err.x; 
-			a01 += err.x * err.y ;
-			a11 += err.y * err.y; 
-		}	
+			for (size_t i = 0; i < points.size(); i++) {
+				err.x = points.at(i).x - center.x;
+				err.y = points.at(i).y - center.y;
+
+				a00 += err.x * err.x;
+				a01 += err.x * err.y ;
+				a11 += err.y * err.y;
+			}
 		}
-		
+
 		a00 /= points.size(); a10 = a01 = a01 / points.size(); a11 /= points.size();
-		
-	//	a00 = 2.5; a01 = a10 = 1.5; a11 = 2.5;
+
+		//	a00 = 2.5; a01 = a10 = 1.5; a11 = 2.5;
 
 		//(a00 - lambda) * (a11 - lambda) - a10 * a01 = 0;
 		//a00 * a11 - a11 * lambda - a00 * lambda + lambda^2 -a10*a01 = 0;
@@ -137,47 +137,47 @@ public:
 		lambda_0 = p + sqrt(p*p - q);
 		lambda_1 = p - sqrt(p*p - q);
 		if (lambda_0 < lambda_1) {double help = lambda_1; lambda_1 = lambda_0; lambda_0 = help;}
-		
-//		a00 * v0x + a01 * v0y = lambda_0 * v0x;
-//		a10 * v0x + a11 * v0y = lambda_0 * v0y;		
 
-//		(a00 - lambda_0) * v0x + 	 a01      * v0y  = 0;
-//		    a10 	 * v0x + (a11 - lambda_0) * v0y = 0;		
+		//		a00 * v0x + a01 * v0y = lambda_0 * v0x;
+		//		a10 * v0x + a11 * v0y = lambda_0 * v0y;
 
-	//	ROS_INFO("Lambda_0 %f Lambda_1 %f | a00 %f, a01 %f, a10 %f, a11 %f ", lambda_0, lambda_1, a00, a01, a10, a11);
+		//		(a00 - lambda_0) * v0x + 	 a01      * v0y  = 0;
+		//		    a10 	 * v0x + (a11 - lambda_0) * v0y = 0;
+
+		//	ROS_INFO("Lambda_0 %f Lambda_1 %f | a00 %f, a01 %f, a10 %f, a11 %f ", lambda_0, lambda_1, a00, a01, a10, a11);
 
 		if (lambda_0 != 0) {
-		 v0y = a01*a10 / ((a11 - lambda_0) * (a00 - lambda_0));
-		 v0x = -(a11 - lambda_0) * v0y / a10; //(a00 - a01 * foo) / lambda_0;
-		 magn = magnV2(v0x,v0y);
-		 v0x /= magn; v0y /= magn;
+			v0y = a01*a10 / ((a11 - lambda_0) * (a00 - lambda_0));
+			v0x = -(a11 - lambda_0) * v0y / a10; //(a00 - a01 * foo) / lambda_0;
+			magn = magnV2(v0x,v0y);
+			v0x /= magn; v0y /= magn;
 		} else {
 			v0x = v0y = 0.0;
 		}
 
 		if (lambda_1 != 0) {
-		 v1y = a01*a10 / ((a11 - lambda_1) * (a00 - lambda_1));
-		 v1x = -(a11 - lambda_1) * v1y / a10; //(a00 - a01 * foo) / lambda_1;
-		 magn = magnV2(v1x,v1y);
-		 v1x /= magn; v1y /= magn;
+			v1y = a01*a10 / ((a11 - lambda_1) * (a00 - lambda_1));
+			v1x = -(a11 - lambda_1) * v1y / a10; //(a00 - a01 * foo) / lambda_1;
+			magn = magnV2(v1x,v1y);
+			v1x /= magn; v1y /= magn;
 		} else {
 			v1x = v1y = 0.0;
 		}
 
-//		ROS_INFO(" --  I Eigen - vector x %f , y %f ", v0x, v0y);
-//		ROS_INFO(" -- II Eigen - vector x %f , y %f ", v1x, v1y);
+		//		ROS_INFO(" --  I Eigen - vector x %f , y %f ", v0x, v0y);
+		//		ROS_INFO(" -- II Eigen - vector x %f , y %f ", v1x, v1y);
 
-		
+
 		double maxX = 0.0; double maxY = 0.0; double maxZ = 0.0;
 
 		for (size_t i = 0; i < points.size(); i++) {
 			if (fabs(projectionV2(v0x, v0y, points.at(i).x - center.x, points.at(i).y - center.y)) > maxX) {
 				maxX = fabs(projectionV2(v0x, v0y, points.at(i).x - center.x, points.at(i).y - center.y));
-			//	ROS_INFO("1 - VX: %f, VY: %f | vector x %f , y %f , maxX %f ", points.at(i).x - center.x, points.at(i).y - center.y, v0x, v0y, maxX);
+				//	ROS_INFO("1 - VX: %f, VY: %f | vector x %f , y %f , maxX %f ", points.at(i).x - center.x, points.at(i).y - center.y, v0x, v0y, maxX);
 			} 
 			if (fabs(projectionV2(v1x, v1y, points.at(i).x - center.x, points.at(i).y - center.y)) > maxY) {
 				maxY = fabs(projectionV2(v1x, v1y, points.at(i).x - center.x, points.at(i).y - center.y));
-			//	ROS_INFO("2 - VX: %f, VY: %f | vector x %f , y %f , maxY %f ", points.at(i).x - center.x, points.at(i).y - center.y, v1x, v1y, maxY);
+				//	ROS_INFO("2 - VX: %f, VY: %f | vector x %f , y %f , maxY %f ", points.at(i).x - center.x, points.at(i).y - center.y, v1x, v1y, maxY);
 
 			} 
 			if (fabs(points.at(i).z - center.z) > maxZ) {
@@ -186,51 +186,51 @@ public:
 		}
 
 		//bounding = maxX * (v0x, v0y) + center; and maxY * (v1x, v1y) + center
-	
+
 		//ROS_INFO("Bounding Center: %f | %f | %f | Dim: %f | %f | %f | Angle: %f ", center.x, center.y, center.z, maxX, maxY, maxZ, atan2(v0y, v0x));
 
 		// float multi array
 		//center.x center.y center.z extend.x, extend.y, extend.z, angle
-		
+
 		boxDimensions.x = maxX;
 		boxDimensions.y = maxY;
 		boxDimensions.z = maxZ;
 		boxOrientationAngle = atan2(v0y, v0x);
 		boundingBoxPoints.clear();
 		pcl::PointXYZ help, toPush;
-//1
+		//1
 		help.x = maxX; help.y = maxY; help.z = maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)  + center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//2
+		//2
 		help.x = maxX; help.y = -maxY; help.z = maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//3
+		//3
 		help.x = -maxX; help.y = -maxY; help.z = maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.y * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//4
+		//4
 		help.x = -maxX; help.y = maxY; help.z = maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//5
+		//5
 		help.x = maxX; help.y = maxY; help.z = -maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//6
+		//6
 		help.x = maxX; help.y = -maxY; help.z = -maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//7
+		//7
 		help.x = -maxX; help.y = -maxY; help.z = -maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-//8
+		//8
 		help.x = -maxX; help.y = maxY; help.z = -maxZ;
 		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle)+ center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
-		
+
 
 		//for (size_t i = 0; i < boundingBoxPoints.size(); i++) {
 		//	ROS_INFO(" Dimensions: %f , %f , %f,| %f, %f, %f ", boundingBoxPoints.at(i).x, boundingBoxPoints.at(i).y, boundingBoxPoints.at(i).z, maxX, maxY, maxZ);
