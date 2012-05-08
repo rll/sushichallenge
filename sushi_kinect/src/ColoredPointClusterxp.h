@@ -105,7 +105,6 @@ public:
 		double p = 0; double q = 0; double lambda_0 = 0; double lambda_1 = 0;
 		double v0x = 0.0; double v0y = 0.0;
 		double v1x = 0.0; double v1y = 0.0;
-		double foo = 0.0;
 		double magn = 0.0;
 
 		PointXYZRGB err; err.x = err.y = 0;
@@ -123,10 +122,12 @@ public:
 		
 		a00 /= points.size(); a10 = a01 = a01 / points.size(); a11 /= points.size();
 		
-		//(a00 - lambda) * (a11 - lambda) - a10 * a10 = 0;
-		//a00 * a11 - a11 * lambda - a00 * lambda + lambda^2 = 0;
-		// lambda^2 + (-a11 - a00)*lambda + a10^2 = 0;   
-		p = (a11 + a00) / 2.0; q = a10*a10;
+	//	a00 = 2.5; a01 = a10 = 1.5; a11 = 2.5;
+
+		//(a00 - lambda) * (a11 - lambda) - a10 * a01 = 0;
+		//a00 * a11 - a11 * lambda - a00 * lambda + lambda^2 -a10*a01 = 0;
+		// lambda^2 + (-a11 - a00)*lambda + a00 * a11 - a10^2 = 0;   
+		p = (a11 + a00) / 2.0; q = a00 * a11 - a01*a10;
 		lambda_0 = p + sqrt(p*p - q);
 		lambda_1 = p - sqrt(p*p - q);
 		if (lambda_0 < lambda_1) {double help = lambda_1; lambda_1 = lambda_0; lambda_0 = help;}
@@ -137,9 +138,11 @@ public:
 //		(a00 - lambda_0) * v0x + 	 a01      * v0y  = 0;
 //		    a10 	 * v0x + (a11 - lambda_0) * v0y = 0;		
 
+	//	ROS_INFO("Lambda_0 %f Lambda_1 %f | a00 %f, a01 %f, a10 %f, a11 %f ", lambda_0, lambda_1, a00, a01, a10, a11);
+
 		if (lambda_0 != 0) {
-		 v0y = foo = a01*a10 / ((a11 - lambda_0) * (a00 - lambda_0));
-		 v0x = (a00 - a01 * foo) / lambda_0;
+		 v0y = a01*a10 / ((a11 - lambda_0) * (a00 - lambda_0));
+		 v0x = -(a11 - lambda_0) * v0y / a10; //(a00 - a01 * foo) / lambda_0;
 		 magn = magnV2(v0x,v0y);
 		 v0x /= magn; v0y /= magn;
 		} else {
@@ -147,22 +150,29 @@ public:
 		}
 
 		if (lambda_1 != 0) {
-		 v1y = foo = a01*a10 / ((a11 - lambda_1) * (a00 - lambda_1));
-		 v1x = (a00 - a01 * foo) / lambda_1;
+		 v1y = a01*a10 / ((a11 - lambda_1) * (a00 - lambda_1));
+		 v1x = -(a11 - lambda_1) * v1y / a10; //(a00 - a01 * foo) / lambda_1;
 		 magn = magnV2(v1x,v1y);
 		 v1x /= magn; v1y /= magn;
 		} else {
 			v1x = v1y = 0.0;
 		}
+
+//		ROS_INFO(" --  I Eigen - vector x %f , y %f ", v0x, v0y);
+//		ROS_INFO(" -- II Eigen - vector x %f , y %f ", v1x, v1y);
+
 		
 		double maxX = 0.0; double maxY = 0.0; double maxZ = 0.0;
 
 		for (size_t i = 0; i < points.size(); i++) {
-			if (fabs(projectionV2(v0x, v0y, points.at(i).x, points.at(i).y) > maxX)) {
-				maxX = fabs(projectionV2(v0x, v0y, points.at(i).x, points.at(i).y));
+			if (fabs(projectionV2(v0x, v0y, points.at(i).x - center.x, points.at(i).y - center.y)) > maxX) {
+				maxX = fabs(projectionV2(v0x, v0y, points.at(i).x - center.x, points.at(i).y - center.y));
+			//	ROS_INFO("1 - VX: %f, VY: %f | vector x %f , y %f , maxX %f ", points.at(i).x - center.x, points.at(i).y - center.y, v0x, v0y, maxX);
 			} 
-			if (fabs(projectionV2(v1x, v1y, points.at(i).x, points.at(i).y) > maxY)) {
-				maxY = fabs(projectionV2(v1x, v1y, points.at(i).x, points.at(i).y));
+			if (fabs(projectionV2(v1x, v1y, points.at(i).x - center.x, points.at(i).y - center.y)) > maxY) {
+				maxY = fabs(projectionV2(v1x, v1y, points.at(i).x - center.x, points.at(i).y - center.y));
+			//	ROS_INFO("2 - VX: %f, VY: %f | vector x %f , y %f , maxY %f ", points.at(i).x - center.x, points.at(i).y - center.y, v1x, v1y, maxY);
+
 			} 
 			if (fabs(points.at(i).z - center.z) > maxZ) {
 				maxZ = fabs(points.at(i).z - center.z);
@@ -171,7 +181,7 @@ public:
 
 		//bounding = maxX * (v0x, v0y) + center; and maxY * (v1x, v1y) + center
 	
-		ROS_INFO("Bounding Center: %f | %f | %f | Dim: %f | %f | %f | Angle: %f ", center.x, center.y, center.z, maxX, maxY, maxZ, atan2(v0y, v0x));
+		//ROS_INFO("Bounding Center: %f | %f | %f | Dim: %f | %f | %f | Angle: %f ", center.x, center.y, center.z, maxX, maxY, maxZ, atan2(v0y, v0x));
 
 		// float multi array
 		//center.x center.y center.z extend.x, extend.y, extend.z, angle

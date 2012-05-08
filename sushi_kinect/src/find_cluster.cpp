@@ -730,7 +730,7 @@ public:
 		abovePlaneClusterSet = createClusterSet(abovePlanePixelSet);
 		onPlaneClusterSet = createClusterSet(onPlanePixelSet);
 
-		ROS_INFO(":CloudSCb: 2 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
+		//ROS_INFO(":CloudSCb: 2 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 		//double stepSize = 0.02;
 		//double upperLimit = 0.2;
@@ -752,7 +752,7 @@ public:
 		eraseSmallPlaneCluster(onPlaneClusterSet);
 
 
-		ROS_INFO(":CloudSCb: 4 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
+		//ROS_INFO(":CloudSCb: 4 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 
 		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a ++) {
@@ -782,7 +782,7 @@ public:
 		int maxClusterID = 0;
 
 
-		if (abovePlaneClusterSet.size() > 0) {
+		if (abovePlaneClusterSet.size() > 0) {  // also todo for onPlane
 			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
 				abovePlaneClusterSet.at(i).calcBoundingBox();		
 				if ((int)abovePlaneClusterSet.at(i).points.size() > maxClusterSize) {
