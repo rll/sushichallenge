@@ -12,6 +12,7 @@ public:
 	vector<pcl::PointXYZRGB> points;
 	PointXYZRGB center;
 	PointXYZRGB variances;
+	PointXYZRGB boundingBox2DProj;
 
 
 	double x0, x1, y0, y1, z0, z1;
@@ -95,9 +96,97 @@ public:
 			if (points.at(i).z < z0) {z0 = points.at(i).z;}
 			if (points.at(i).z > z1) {z1 = points.at(i).z;}
 		}		
-
-
 	}
+
+	
+	void calcBoundingBox() {
+		double a00 = 0.0; double a01 = 0.0;
+		double a10 = 0.0; double a11 = 0.0;
+		double p = 0; double q = 0; double lambda_0 = 0; double lambda_1 = 0;
+		double v0x = 0.0; double v0y = 0.0;
+		double v1x = 0.0; double v1y = 0.0;
+		double foo = 0.0;
+		double magn = 0.0;
+
+		PointXYZRGB err; err.x = err.y = 0;
+
+		if (points.size() > 0) {
+		for (size_t i = 0; i < points.size(); i++) {
+			err.x = points.at(i).x - center.x;
+			err.y = points.at(i).y - center.y;
+			
+			a00 += err.x * err.x; 
+			a01 += err.x * err.y ;
+			a11 += err.y * err.y; 
+		}	
+		}
+		
+		a00 /= points.size(); a10 = a01 = a01 / points.size(); a11 /= points.size();
+		
+		//(a00 - lambda) * (a11 - lambda) - a10 * a10 = 0;
+		//a00 * a11 - a11 * lambda - a00 * lambda + lambda^2 = 0;
+		// lambda^2 + (-a11 - a00)*lambda + a10^2 = 0;   
+		p = (a11 + a00) / 2.0; q = a10*a10;
+		lambda_0 = p + sqrt(p*p - q);
+		lambda_1 = p - sqrt(p*p - q);
+		if (lambda_0 < lambda_1) {double help = lambda_1; lambda_1 = lambda_0; lambda_0 = help;}
+		
+//		a00 * v0x + a01 * v0y = lambda_0 * v0x;
+//		a10 * v0x + a11 * v0y = lambda_0 * v0y;		
+
+//		(a00 - lambda_0) * v0x + 	 a01      * v0y  = 0;
+//		    a10 	 * v0x + (a11 - lambda_0) * v0y = 0;		
+
+		if (lambda_0 != 0) {
+		 v0y = foo = a01*a10 / ((a11 - lambda_0) * (a00 - lambda_0));
+		 v0x = (a00 - a01 * foo) / lambda_0;
+		 magn = magnV2(v0x,v0y);
+		 v0x /= magn; v0y /= magn;
+		} else {
+			v0x = v0y = 0.0;
+		}
+
+		if (lambda_1 != 0) {
+		 v1y = foo = a01*a10 / ((a11 - lambda_1) * (a00 - lambda_1));
+		 v1x = (a00 - a01 * foo) / lambda_1;
+		 magn = magnV2(v1x,v1y);
+		 v1x /= magn; v1y /= magn;
+		} else {
+			v1x = v1y = 0.0;
+		}
+		
+		double maxX = 0.0; double maxY = 0.0; double maxZ = 0.0;
+
+		for (size_t i = 0; i < points.size(); i++) {
+			if (fabs(projectionV2(v0x, v0y, points.at(i).x, points.at(i).y) > maxX)) {
+				maxX = fabs(projectionV2(v0x, v0y, points.at(i).x, points.at(i).y));
+			} 
+			if (fabs(projectionV2(v1x, v1y, points.at(i).x, points.at(i).y) > maxY)) {
+				maxY = fabs(projectionV2(v1x, v1y, points.at(i).x, points.at(i).y));
+			} 
+			if (fabs(points.at(i).z - center.z) > maxZ) {
+				maxZ = fabs(points.at(i).z - center.z);
+			}
+		}
+
+		//bounding = maxX * (v0x, v0y) + center; and maxY * (v1x, v1y) + center
+	
+		ROS_INFO("Bounding Center: %f | %f | %f | Dim: %f | %f | %f | Angle: %f ", center.x, center.y, center.z, maxX, maxY, maxZ, atan2(v0y, v0x));
+
+		// float multi array
+		//center.x center.y center.z extend.x, extend.y, extend.z, angle
+	}
+
+
+	double projectionV2(double a, double b, double c, double d) {
+		return a*c + b*d;
+	}
+
+
+	double magnV2(double x, double y) {
+		return sqrt(x*x + y*y);
+	}
+
 
 	void addElement(pcl::PointXYZRGB newElement) {
 		points.push_back(newElement);

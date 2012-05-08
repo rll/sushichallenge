@@ -784,6 +784,7 @@ public:
 
 		if (abovePlaneClusterSet.size() > 0) {
 			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
+				abovePlaneClusterSet.at(i).calcBoundingBox();		
 				if ((int)abovePlaneClusterSet.at(i).points.size() > maxClusterSize) {
 					maxClusterID = i;
 					maxClusterSize = abovePlaneClusterSet.at(i).points.size();
