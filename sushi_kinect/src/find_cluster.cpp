@@ -32,6 +32,8 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "ColoredPointClusterxp.h"
+#include "tabletop_object_detector/TabletopDetection.h"
+
 
 #include <tf/transform_listener.h>
 
@@ -53,6 +55,11 @@ class FindCluster
 
 	ros::NodeHandle private_node_handle_D;
 	ros::NodeHandle private_node_handle_X;
+
+	ros::NodeHandle nh_service_table;
+
+
+
 
 	double paramD;
 	double paramX;
@@ -79,6 +86,9 @@ class FindCluster
 
 	ros::Publisher box_data;
 
+	ros::ServiceServer service;
+
+
 	sensor_msgs::PointCloud2 cloud_voxelized;
 
 	pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
@@ -103,7 +113,7 @@ class FindCluster
 	static const int ImageVerticalOffset = -2;
 	static const int ImageHorizontalOffset = 0;
 
-	static const double VoxelizeLeafSize = 0.015; //0.02
+	static const double VoxelizeLeafSize = 0.01; //0.015
 	static const double maxClusterLength = 0.4;
 	static const double minClusterLength = 0.1;
 	static const double minDistanceAbovePlane = 0.0125;
@@ -151,6 +161,7 @@ public:
 		cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
 		box_data = n_box.advertise<std_msgs::Float64MultiArray>("bolt/vision/bounding_box_data", 10);
 
+		service = nh_service_table.advertiseService("find_table", &FindCluster::findTable, this);
 
 
 
@@ -164,6 +175,58 @@ public:
 	{
 	}
 
+	bool findTable(tabletop_object_detector::TabletopDetection::Request  &req,
+		 tabletop_object_detector::TabletopDetection::Response &res )
+	{
+	  //res.detection.table.pose.header.seq;
+	  //res.detection.table.pose.header.stamp;
+	  res.detection.table.pose.header.frame_id = std::string("/base_link");
+
+	  res.detection.table.pose.pose.position.x;
+	  res.detection.table.pose.pose.position.y;
+	  res.detection.table.pose.pose.position.z;
+
+	  res.detection.table.pose.pose.orientation.x;
+	  res.detection.table.pose.pose.orientation.y;
+	  res.detection.table.pose.pose.orientation.z;
+	  res.detection.table.pose.pose.orientation.w;
+	  
+	  res.detection.table.x_min;
+	  res.detection.table.x_max;
+	  res.detection.table.y_min;
+	  res.detection.table.y_max;
+
+	  res.detection.clusters[0].header.seq;
+	  res.detection.clusters[0].header.stamp;
+	  res.detection.clusters[0].header.frame_id;
+
+	  res.detection.clusters[0].points[0].x;
+	  res.detection.clusters[0].points[0].y;
+	  res.detection.clusters[0].points[0].z;
+
+//	  res.detection.clusters[0].channels[0].name;
+//	  res.detection.clusters[0].channels[0].values[0];
+
+//	  res.detection.models[0].model_list[0].model_id;
+//	  res.detection.models[0].model_list[0].pose.header.seq;
+//	  res.detection.models[0].model_list[0].pose.header.stamp;
+//	  res.detection.models[0].model_list[0].pose.header.frame_id;
+	  
+//	  res.detection.models[0].model_list[0].pose.pose.position.x;	  
+//	  res.detection.models[0].model_list[0].pose.pose.position.y;	  
+//	  res.detection.models[0].model_list[0].pose.pose.position.z;	  
+
+//	  res.detection.models[0].model_list[0].pose.pose.orientation.x;	  
+//	  res.detection.models[0].model_list[0].pose.pose.orientation.y;	  
+//	  res.detection.models[0].model_list[0].pose.pose.orientation.z;	  
+//	  res.detection.models[0].model_list[0].pose.pose.orientation.w;	  
+
+//	  res.detection.models[0].model_list[0].confidence;
+	  res.detection.cluster_model_indices[0];
+	  	  
+	  res.detection.result = 4; //SUCCESS
+	  return true;
+	}
 
 
 
@@ -751,7 +814,8 @@ public:
 
 		//Clusters on Plane
 		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
-			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
+//			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
+			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.0005, 0.3);
 		}
 		eraseBigPlaneCluster(onPlaneClusterSet);
 		eraseSmallPlaneCluster(onPlaneClusterSet);
