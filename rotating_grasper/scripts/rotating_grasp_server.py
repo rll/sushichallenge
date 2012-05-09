@@ -6,6 +6,7 @@ import rospy
 import math
 import tf
 import sys
+import subprocess
 #import pr2_simple_motions
 import actionlib
 from geometry_msgs.msg import PointStamped, PoseStamped, Quaternion
@@ -16,6 +17,9 @@ from tf.transformations import quaternion_about_axis, quaternion_multiply
 
 from rotating_grasper.msg import *
 from rotating_grasper.srv import *
+
+from pr2_python.controller_manager_client import ControllerManagerClient
+from pr2_python.arm_mover import ArmMover
 
 def fix_angle(angle):
     while angle > 2*math.pi:
@@ -30,6 +34,9 @@ def handle_rotating_grasp(req):
     print command
     
     print 'opening gripper'
+    grip_client = actionlib.SimpleActionClient('r_gripper_controller/gripper_action', Pr2GripperCommandAction)
+    grip_client.wait_for_server()
+    
     grip_pos = 0.8
     effort = -1
     grip_client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position = grip_pos, max_effort = effort)))
@@ -41,9 +48,9 @@ def handle_rotating_grasp(req):
     offset_init = rospy.get_param('offset_init',0.15)
     offset = offset_init
     offset_final = rospy.get_param('offset_final',offset_init)
-    start_drop_angle = rospy.get_param('start_drop_angle',0)
+    start_drop_angle = rospy.get_param('start_drop_angle',math.pi/2)
     start_grip_angle = rospy.get_param('start_grip_angle',math.pi - math.pi/6)
-    finish_lift_angle = rospy.get_param('finish_lift_angle',3*math.pi/2)
+    finish_lift_angle = rospy.get_param('finish_lift_angle',math.pi + math.pi/4)
     sleep_time = rospy.get_param('sleep_time',1/20.)
     
     x_diff = command.initial.x - command.center.x
@@ -54,6 +61,33 @@ def handle_rotating_grasp(req):
     outward_angle = command.outward_angle
     
     print 'radius = %.3f, init angle = %.3fdeg' % (radius, (180*init_angle/math.pi))
+    
+    print 'going to initial pose'
+    offset_vertical   = offset * math.cos(outward_angle)
+    offset_horizontal = offset * math.sin(outward_angle)
+    
+    target = geometry_msgs.msg.PoseStamped()
+    target.header.stamp = rospy.Time.now()
+    target.header.frame_id = command.header.frame_id
+    target.pose.position.x = command.center.x + math.cos(start_drop_angle) * (radius + offset_horizontal)
+    target.pose.position.y = command.center.y - math.sin(start_drop_angle) * (radius + offset_horizontal)
+    target.pose.position.z = command.center.z + offset_vertical
+    q1 = quaternion_about_axis(math.pi/2,(0,1,0))
+    q2 = quaternion_about_axis(math.pi/2+start_drop_angle,(1,0,0))
+    q3 = quaternion_about_axis(-outward_angle,(0,0,1))
+    q12 = quaternion_multiply(q1,q2)
+    q = quaternion_multiply(q12,q3)
+    #q = (0,0,0,1)
+    target.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
+    mover = ArmMover('right_arm')
+    mover.move_to_goal(target,try_hard=False)
+    
+    #start controller
+    print 'starting controller'
+    #cmclient = ControllerManagerClient()
+    #cmclient.switch_controllers(["l_cart"], ["l_arm_controller"])
+    subprocess.check_call("rosrun pr2_controller_manager pr2_controller_manager stop r_arm_controller",shell=True)
+    subprocess.check_call("rosrun pr2_controller_manager pr2_controller_manager start r_cart",shell=True)
     
     last_print = rospy.Time.now()
     
@@ -85,10 +119,8 @@ def handle_rotating_grasp(req):
             elif has_drop_started and start_grip_angle <= now_angle and not has_grip_started:
                 print 'starting grip'
                 offset = 0
-                #send gripper command
-                grip_client = actionlib.SimpleActionClient('r_gripper_controller/gripper_action', Pr2GripperCommandAction)
-                grip_client.wait_for_server()
                 
+                #send gripper command
                 grip_pos = 0
                 effort = -1
                 grip_client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position = grip_pos, max_effort = effort)))
@@ -99,6 +131,7 @@ def handle_rotating_grasp(req):
                     has_lift_started = True
                 if finish_lift_angle <= now_angle:
                     #TODO: determine success
+                    print 'Grasp finished'
                     return RotatingGrasperResponse(True)
                 offset = offset_init * (now_angle - math.pi) / (finish_lift_angle - math.pi)
         
@@ -127,7 +160,7 @@ def handle_rotating_grasp(req):
         
         q1 = quaternion_about_axis(math.pi/2,(0,1,0))
         q2 = quaternion_about_axis(math.pi/2+command_angle,(1,0,0))
-        q3 = quaternion_about_axis(-outward_angle,(0,1,0))
+        q3 = quaternion_about_axis(-outward_angle,(0,0,1))
         q12 = quaternion_multiply(q1,q2)
         q = quaternion_multiply(q12,q3)
         #q = (0,0,0,1)
