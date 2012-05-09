@@ -35,8 +35,10 @@ rosbuild_add_library(spinning_tabletop_detection
   src/tracker_ros.cpp
   src/dist_math.cpp
   src/table.cpp
+  src/config.cpp
+  src/spinning_table_config.cpp
 )
-target_link_libraries(spinning_tabletop_detection ${OpenCV_LIBS})
+target_link_libraries(spinning_tabletop_detection ${OpenCV_LIBS} boost_program_options)
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 rosbuild_add_executable(test_tracker_ros src/test_tracker_ros.cpp)

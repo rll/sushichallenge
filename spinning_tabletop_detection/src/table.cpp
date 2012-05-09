@@ -8,15 +8,10 @@
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/surface/convex_hull.h>
 #include <cmath>
+#include "spinning_table_config.h"
 using namespace std;
 using namespace Eigen;
 
-static const float MIN_HEIGHT=.85; // min height of table
-static const float MAX_HEIGHT=100; // max height of table
-static const float HIST_RES = .005; // histogram resolution for table finding
-static const float TABLE_POINTS_TOLERANCE=.025; // tolerance for making points part of table
-
-typedef pcl::PointXYZRGB PointT;
 
 template <typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
@@ -61,9 +56,9 @@ VectorXf clipSet(const VectorXf& in, float low, float high) {
 
 float getTableHeight(ColorCloudPtr cloud) {
   MatrixXf xyz = toEigenMatrix(cloud);
-  VectorXf z = clipSet(xyz.block(0,2,xyz.rows(), 1),MIN_HEIGHT,MAX_HEIGHT);
+  VectorXf z = clipSet(xyz.block(0,2,xyz.rows(), 1),SpinConfig::MIN_HEIGHT,SpinConfig::MAX_HEIGHT);
   if (z.size() < 100) throw runtime_error("getTableHeight: no points at appropriate height");
-  float res = HIST_RES;
+  float res = SpinConfig::HIST_RES;
   VectorXi counts;
   VectorXf binedges;
   makeHistogram(z, res, counts, binedges);
@@ -78,7 +73,7 @@ ColorCloudPtr getTablePoints(ColorCloudPtr cloud, float height) {
   MatrixXf xyz = toEigenMatrix(cloud);
   vector<int> inds;
   for (int i=0; i < cloud->size(); i++)
-    if (fabs(cloud->points[i].z - height) < TABLE_POINTS_TOLERANCE)
+    if (fabs(cloud->points[i].z - height) < SpinConfig::TABLE_POINTS_TOLERANCE)
       inds.push_back(i);
   return extractInds(cloud, inds);
 }

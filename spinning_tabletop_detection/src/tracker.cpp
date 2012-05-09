@@ -6,25 +6,17 @@
 #include "dist_math.h"
 #include <ros/console.h>
 #include <sstream>
+#include "spinning_table_config.h"
 
 using namespace std;
 using namespace Eigen;
-
-
-static const float VOXEL_SIZE = .01; // for downsampling
-static const float TABLE_CLUSTERING_TOLERANCE=.02; // for finding table = biggest cluster at height
-static const float OBJECT_CLUSTERING_TOLERANCE=.04; // for clustering objects on table
-static const int OBJECT_CLUSTER_MIN_SIZE = 15; // number of points
-static const float OBJECT_MATCH_TOLERANCE = .04;
-static const float ABOVE_TABLE_CUTOFF=.02;
-
 
 void TabletopTracker::setLatest(ColorCloudPtr cloud) {
   latest_cloud = cloud;
 };
 
 void TabletopTracker::updateCloud() {
-  transformed_cloud = transformPointCloud1(downsampleCloud(latest_cloud, VOXEL_SIZE), transform);
+  transformed_cloud = transformPointCloud1(downsampleCloud(latest_cloud, SpinConfig::VOXEL_SIZE), transform);
 }
 
 void TabletopTracker::updateTable() {
@@ -32,7 +24,7 @@ void TabletopTracker::updateTable() {
   table_height = getTableHeight(transformed_cloud);
   ROS_INFO_STREAM("table_height " << table_height);
   ColorCloudPtr in_table = getTablePoints(transformed_cloud, table_height);
-  in_table = getBiggestCluster(in_table, TABLE_CLUSTERING_TOLERANCE);
+  in_table = getBiggestCluster(in_table, SpinConfig::TABLE_CLUSTERING_TOLERANCE);
   //  table_hull = findConvexHull(in_table, table_polygons);
   getTableBounds(in_table, xmin, xmax, ymin, ymax);
   //  fixZ(table_hull, table_height);
@@ -111,10 +103,10 @@ vector<VectorXf> getCircleParams(vector<ColorCloudPtr> clu_list) {
 void TabletopTracker::updateClusters() {
   //on_table = getPointsOnTableHull(transformed_cloud, table_hull, table_polygons, table_height+ABOVE_TABLE_CUTOFF);
 
-  ColorCloudPtr on_table = filterXYZ(transformed_cloud, xmin, xmax, ymin, ymax, table_height+ABOVE_TABLE_CUTOFF, 1000);
+  ColorCloudPtr on_table = filterXYZ(transformed_cloud, xmin, xmax, ymin, ymax, table_height+SpinConfig::ABOVE_TABLE_CUTOFF, 1000);
   if (on_table->size() == 0) throw runtime_error("no points on table");
   cout << "on table: " << on_table->size() << endl;
-  vector< vector<int> > cluster_inds = findClusters(on_table,OBJECT_CLUSTERING_TOLERANCE,OBJECT_CLUSTER_MIN_SIZE);
+  vector< vector<int> > cluster_inds = findClusters(on_table,SpinConfig::OBJECT_CLUSTERING_TOLERANCE,SpinConfig::OBJECT_CLUSTER_MIN_SIZE);
   if (cluster_inds.size() == 0) throw runtime_error("no reasonably big clusters found on table");
 
   clusters.clear();
@@ -144,7 +136,7 @@ void TabletopTracker::updateCylinders() {
     vector<int> new2old = argminAlongRows(dists);
     vector<int> newids(clusters.size());
     for (int i=0; i < clusters.size(); i++) {
-      if (dists(i, new2old[i]) < OBJECT_MATCH_TOLERANCE)  {
+      if (dists(i, new2old[i]) < SpinConfig::OBJECT_MATCH_TOLERANCE)  {
 	newids[i] = ids[new2old[i]];
       }
       else {
