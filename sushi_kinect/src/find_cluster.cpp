@@ -748,18 +748,13 @@ public:
 		eraseSmallPlaneCluster(abovePlaneClusterSet);
 
 
-		//
 
+		//Clusters on Plane
 		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
-			//			singleLinkageClusterSet(onPlaneClusterSet, 2.0, 0.01, 0.2);
-
 			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
 		}
 		eraseBigPlaneCluster(onPlaneClusterSet);
 		eraseSmallPlaneCluster(onPlaneClusterSet);
-
-
-		//ROS_INFO(":CloudSCb: 4 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
 
 
 		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a ++) {
@@ -1033,6 +1028,11 @@ public:
 
 	void drawClusterPoints(cv_bridge::CvImagePtr& cv_ptr, std::vector<ColoredPointClusterxp>& clusterSetOrigin, bool isOnTable = false) {
 
+		int colorOffset = 0;
+		if (isOnTable) {
+			colorOffset = 4;
+		}
+
 		std::vector<ColoredPointClusterxp> clusterSet;
 		if (transformationWorked) {		
 			transformClusterSet(clusterSetOrigin, clusterSet);
@@ -1097,14 +1097,14 @@ public:
 
 					//					ROS_INFO("C: %d , X %d , Y %d, Id %d ", c, pix_x, pix_y, foo);
 
-					if (clusterSet.at(c).trackingId % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 0));
-					if (clusterSet.at(c).trackingId % 8 == 1) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 255, 0));
-					if (clusterSet.at(c).trackingId % 8 == 2) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 0));
-					if (clusterSet.at(c).trackingId % 8 == 3) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 255));
-					if (clusterSet.at(c).trackingId % 8 == 4) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 255));
-					if (clusterSet.at(c).trackingId % 8 == 5) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 255));
-					if (clusterSet.at(c).trackingId % 8 == 6) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 128, 255));
-					if (clusterSet.at(c).trackingId % 8 == 7) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 128, 128));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 0) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 0, 0));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 1) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(255, 255, 0));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 2) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 0));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 3) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 255, 255));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 4) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 255));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 5) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(128, 0, 0));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 6) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 0, 128));
+					if ((clusterSet.at(c).trackingId + colorOffset) % 8 == 7) cv::rectangle(cv_ptr->image, pointP1, pointP2, CV_RGB(0, 128, 0));
 
 				} // if point is in image
 			} // for all points

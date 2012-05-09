@@ -208,7 +208,7 @@ public:
 		boundingBoxPoints.push_back(toPush);
 		//3
 		help.x = -maxX; help.y = -maxY; help.z = maxZ;
-		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.y * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
+		toPush.x = help.x * cos(boxOrientationAngle) - help.y * sin(boxOrientationAngle) + center.x; toPush.y = help.x * sin(boxOrientationAngle) + help.y * cos(boxOrientationAngle) + center.y; toPush.z = help.z + center.z;
 		boundingBoxPoints.push_back(toPush);
 		//4
 		help.x = -maxX; help.y = maxY; help.z = maxZ;
