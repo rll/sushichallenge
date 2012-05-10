@@ -65,7 +65,7 @@ class FindCluster
 	double paramX;
 
 	double coeffManual[4];
-
+	double vA, vB, vC, vD;
 
 	ros::Subscriber cloud_sub;
 	ros::Publisher cloud_pub;
@@ -92,6 +92,8 @@ class FindCluster
 	sensor_msgs::PointCloud2 cloud_voxelized;
 
 	pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
+        pcl::PointCloud<pcl::PointXYZ> cloud_toRosMsgNoColor;
+
 	pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
 
 	std::vector<pcl::PointXYZRGB> abovePlanePixelSet;
@@ -106,6 +108,8 @@ class FindCluster
 	//ros::NodeHandle pa;
 	//ros::Publisher pose_array;
 
+
+	tf::Quaternion q_table;
 	cv_bridge::CvImagePtr cv_ptr;
 
 	static const double OpeningAngleHorizontal = 34.0 / 180.0 * 3.14159266;
@@ -163,8 +167,6 @@ public:
 
 		service = nh_service_table.advertiseService("find_table", &FindCluster::findTable, this);
 
-
-
 		cycleCountPcl = 0;
 		cycleCountImg = 0;
 
@@ -175,6 +177,7 @@ public:
 	{
 	}
 
+
 	bool findTable(tabletop_object_detector::TabletopDetection::Request  &req,
 		 tabletop_object_detector::TabletopDetection::Response &res )
 	{
@@ -182,27 +185,35 @@ public:
 	  //res.detection.table.pose.header.stamp;
 	  res.detection.table.pose.header.frame_id = std::string("/base_link");
 
-	  res.detection.table.pose.pose.position.x;
-	  res.detection.table.pose.pose.position.y;
-	  res.detection.table.pose.pose.position.z;
+// void calcTableParameters(double a, double b, double c, double d, double prox, double& cx, double& cy, double& cz, double& qx, double& qy, double& qz, double& qw, double& minX, double& maxX, double& minY, double& maxY) {
 
-	  res.detection.table.pose.pose.orientation.x;
-	  res.detection.table.pose.pose.orientation.y;
-	  res.detection.table.pose.pose.orientation.z;
-	  res.detection.table.pose.pose.orientation.w;
-	  
-	  res.detection.table.x_min;
-	  res.detection.table.x_max;
-	  res.detection.table.y_min;
-	  res.detection.table.y_max;
+       calcTableParameters(vA, vB, vC, vD, 0.01, res.detection.table.pose.pose.position.x, res.detection.table.pose.pose.position.y, res.detection.table.pose.pose.position.z, res.detection.table.pose.pose.orientation.x, res.detection.table.pose.pose.orientation.y, res.detection.table.pose.pose.orientation.z, res.detection.table.pose.pose.orientation.w, res.detection.table.x_min, res.detection.table.x_max, res.detection.table.y_min, res.detection.table.y_max);
 
-	  res.detection.clusters[0].header.seq;
-	  res.detection.clusters[0].header.stamp;
-	  res.detection.clusters[0].header.frame_id;
+//	  res.detection.clusters[0].header.seq;
+//	  res.detection.clusters[0].header.stamp;
+	  res.detection.clusters[0].header.frame_id  = std::string("/base_link");
 
-	  res.detection.clusters[0].points[0].x;
-	  res.detection.clusters[0].points[0].y;
-	  res.detection.clusters[0].points[0].z;
+
+          for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
+              for (size_t j = 0; j < abovePlaneClusterSet.at(i).points.size(); j++) {
+
+              res.detection.clusters[i].points[j].x = abovePlaneClusterSet.at(i).points.at(j).x;
+              res.detection.clusters[i].points[j].y = abovePlaneClusterSet.at(i).points.at(j).y;
+              res.detection.clusters[i].points[j].z = abovePlaneClusterSet.at(i).points.at(j).z;
+
+              }
+           }
+
+          int sizeOfAbovePlaneCluster = abovePlaneClusterSet.size();
+
+          for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
+              for (size_t j = 0; j < onPlaneClusterSet.at(i).points.size(); j++) {
+                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].x = onPlaneClusterSet.at(i).points.at(j).x;
+                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].y = onPlaneClusterSet.at(i).points.at(j).y;
+                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].z = onPlaneClusterSet.at(i).points.at(j).z;
+              }
+          }
+
 
 //	  res.detection.clusters[0].channels[0].name;
 //	  res.detection.clusters[0].channels[0].values[0];
@@ -222,13 +233,11 @@ public:
 //	  res.detection.models[0].model_list[0].pose.pose.orientation.w;	  
 
 //	  res.detection.models[0].model_list[0].confidence;
-	  res.detection.cluster_model_indices[0];
+//	  res.detection.cluster_model_indices[0];
 	  	  
 	  res.detection.result = 4; //SUCCESS
 	  return true;
 	}
-
-
 
 
 	void reducePointCloudByHeight(sensor_msgs::PointCloud2& cloud2, double height) {
@@ -556,6 +565,51 @@ public:
 	}
 
 
+	/********************************************************************/
+        void calcTableParameters(double a, double b, double c, double d, double prox, double& cx, double& cy, double& cz, double& qx, double& qy, double& qz, double& qw, float& minX, float& maxX, float& minY, float& maxY) {
+		
+		pcl::PointXYZRGB cog;
+		int count = 0;
+		cog.x = cog.y = cog.z = cog.r = cog.g = cog.b = 0.0;
+
+		for (size_t i = 0; i < cloud_toRosMsg.size(); i++) {
+			if (fabs(signedPointPlaneDistance(cloud_toRosMsg.at(i).x, cloud_toRosMsg.at(i).y, cloud_toRosMsg.at(i).z, vA, vB, vC, vD)) < prox) {
+				if (count == 0) {
+					minX = maxX = cloud_toRosMsg.at(i).x;
+					minY = maxY = cloud_toRosMsg.at(i).y;
+				}
+
+				cog.x += cloud_toRosMsg.at(i).x;
+				cog.y += cloud_toRosMsg.at(i).y;
+				cog.z += cloud_toRosMsg.at(i).z;
+				cog.r += cloud_toRosMsg.at(i).r;
+				cog.g += cloud_toRosMsg.at(i).g;
+				cog.b += cloud_toRosMsg.at(i).b;
+
+                                if (cloud_toRosMsg.at(i).x < minX) {minX = (float)cloud_toRosMsg.at(i).x;}
+                                if (cloud_toRosMsg.at(i).x > maxX) {maxX = (float)cloud_toRosMsg.at(i).x;}
+                                if (cloud_toRosMsg.at(i).y < minY) {minY = (float)cloud_toRosMsg.at(i).y;}
+                                if (cloud_toRosMsg.at(i).y > maxY) {maxY = (float)cloud_toRosMsg.at(i).y;}
+
+				count++;
+			}
+		}
+		cx = cog.x / count; cy = cog.y / count; cz = cog.z / count;
+
+                //qx = q_table.x;
+                //qy = q_table.y;
+                //qz = q_table.z;
+                //qw = q_table.w;
+
+
+
+
+                //tf::Quaternion q, q2;. q = tf::createQuaternionFromRPY(0, -3.1415 / 2.0, 0)
+		//tf::Quaternion createQuaternionFromRPY(double roll,double pitch,double yaw)
+	}
+
+
+
 
 
 	/********************************************************************/
@@ -602,7 +656,19 @@ public:
 		reducePointCloudByHeight(cloud_voxelized, 0.50);
 
 		//converte to RosPointCloud
-		pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsg);
+
+
+                try {
+                  pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsg);
+                } catch (int e) {
+                    pcl::fromROSMsg (cloud_voxelized, cloud_toRosMsgNoColor);
+                            for (size_t i = 0; i < cloud_toRosMsgNoColor.size(); i++) {
+                                cloud_toRosMsg.at(i).x = cloud_toRosMsgNoColor.at(i).x;
+                                cloud_toRosMsg.at(i).y = cloud_toRosMsgNoColor.at(i).y;
+                                cloud_toRosMsg.at(i).z = cloud_toRosMsgNoColor.at(i).z;
+                                cloud_toRosMsg.at(i).r = cloud_toRosMsg.at(i).g = cloud_toRosMsg.at(i).b = 255;
+                            }
+                }
 
 
 		double stepsize_1 = 0.1; 
@@ -611,7 +677,10 @@ public:
 		double startHeight_1 = 0.2;
 		double stopHeight_1 = 1.8;
 
-		double vA = 0.0; double vB = 0.0; double vC = 1; double vD = 0; 
+		vA = 0.0; 
+		vB = 0.0; 
+		vC = 1.0; 
+		vD = 0.0; 
 
 		for (double height_1 = startHeight_1; height_1 < stopHeight_1; height_1 += stepsize_1) {
 			int number = countPointsInProximity(cloud_toRosMsg, 0.1, vA, vB, vC, -height_1);
@@ -717,10 +786,14 @@ public:
 		vD = -maxLocalHeight_2;
 
 
+		q_table = tf::createQuaternionFromRPY(xBestLocalAngle, yBestLocalAngle, 0.0);
+
 		coeffManual[0] = vA;
 		coeffManual[1] = vB;
 		coeffManual[2] = vC;
 		coeffManual[3] = vD;
+
+		/////calculate table params
 
 
 		/* SAC Starts */
