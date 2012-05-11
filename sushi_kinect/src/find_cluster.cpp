@@ -137,6 +137,14 @@ class FindCluster
           dynamic_reconfigure::Server<sushi_kinect::ParametersConfig> server;
           dynamic_reconfigure::Server<sushi_kinect::ParametersConfig>::CallbackType f;
 
+        double distAboveTable;
+        double colAboveTable;
+        double distOnTable;
+        double colOnTable;
+        double distMergedTable;
+        double colMergedTable;
+
+
 
 	//Store point cloud data
 	sensor_msgs::PointCloud2Ptr cloud_transformed_ptr;
@@ -187,6 +195,15 @@ public:
                 //f = boost::bind<void>(boost::mem_fn(&FindCluster::reconfigureVariables), _1, _2);
                 f = boost::bind(&FindCluster::reconfigureVariables, this, _1, _2);
 		server.setCallback(f);
+
+                 distAboveTable = 0.0;
+                 colAboveTable = 0.0;
+                 distOnTable = 0.0;
+                 colOnTable = 0.0;
+                 distMergedTable = 0.0;
+                 colMergedTable = 0.0;
+
+
 
 
 		captureNow = false;
@@ -300,6 +317,14 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
             config.distAbove, config.colAbove, 
             config.distOn, config.colOn,
             config.distMerge, config.colMerge);
+
+  distAboveTable = config.distAbove;
+  colAboveTable = config.colAbove;
+  distOnTable = config.distOn;
+  colOnTable = config.colOn;
+  distMergedTable = config.distMerge;
+  colMergedTable = config.colMerge;
+
 }
 
 
@@ -946,8 +971,15 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 
 		//double stepSize = 0.02;
 		//double upperLimit = 0.2;
+
+
+
+
+
+
 		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1)); a++) {
-			singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, 0.2);
+                        //singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, 0.2);
+                    singleLinkageClusterSet(abovePlaneClusterSet, distAboveTable, colAboveTable, 0.2);
 		}
 		eraseBigPlaneCluster(abovePlaneClusterSet);
 		eraseSmallPlaneCluster(abovePlaneClusterSet);
@@ -956,15 +988,16 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 
 		//Clusters on Plane
 		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
-//			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
-			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.0005, 0.3);
+//			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.0005, 0.3);
+                        singleLinkageClusterSet(onPlaneClusterSet, distOnTable, colOnTable, 0.3);
 		}
 		eraseBigPlaneCluster(onPlaneClusterSet);
 		eraseSmallPlaneCluster(onPlaneClusterSet);
 
 
 		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a ++) {
-			singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, 0.2);
+                        //singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, 0.2);
+                    singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, distMergedTable, colMergedTable, 0.2);
 		}
 		eraseBigPlaneCluster(abovePlaneClusterSet);
 		eraseSmallPlaneCluster(abovePlaneClusterSet);
