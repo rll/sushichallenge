@@ -7,6 +7,9 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/PointCloud.h>
+#include <geometry_msgs/Point32.h>
+
 #include <opencv/cv.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -21,6 +24,10 @@
 #include <pcl_ros/transforms.h>
 
 
+#include <dynamic_reconfigure/server.h>
+#include <sushi_kinect/ParametersConfig.h>
+#include <boost/mem_fn.hpp>
+#include <boost/bind.hpp>
 
 /////////////
 
@@ -32,7 +39,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "ColoredPointClusterxp.h"
-#include "tabletop_object_detector/TabletopDetection.h"
+#include "tabletop_object_detector/TabletopSegmentation.h"
 
 
 #include <tf/transform_listener.h>
@@ -94,6 +101,9 @@ class FindCluster
 	pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
         pcl::PointCloud<pcl::PointXYZ> cloud_toRosMsgNoColor;
 
+	sensor_msgs::PointCloud pc1;
+	geometry_msgs::Point32 point32;
+
 	pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
 
 	std::vector<pcl::PointXYZRGB> abovePlanePixelSet;
@@ -123,6 +133,9 @@ class FindCluster
 	static const double minDistanceAbovePlane = 0.0125;
 	static const double minDistanceUnderPlane = -0.0125;
 	static const double doRANSAC = true;
+
+          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig> server;
+          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig>::CallbackType f;
 
 
 	//Store point cloud data
@@ -170,6 +183,12 @@ public:
 		cycleCountPcl = 0;
 		cycleCountImg = 0;
 
+
+                //f = boost::bind<void>(boost::mem_fn(&FindCluster::reconfigureVariables), _1, _2);
+                f = boost::bind(&FindCluster::reconfigureVariables, this, _1, _2);
+		server.setCallback(f);
+
+
 		captureNow = false;
 	}
 
@@ -178,41 +197,74 @@ public:
 	}
 
 
-	bool findTable(tabletop_object_detector::TabletopDetection::Request  &req,
-		 tabletop_object_detector::TabletopDetection::Response &res )
+	bool findTable(tabletop_object_detector::TabletopSegmentation::Request  &req,
+		 tabletop_object_detector::TabletopSegmentation::Response &res )
 	{
 	  //res.detection.table.pose.header.seq;
 	  //res.detection.table.pose.header.stamp;
-	  res.detection.table.pose.header.frame_id = std::string("/base_link");
+	  res.table.pose.header.frame_id = std::string("/base_link");
+
 
 // void calcTableParameters(double a, double b, double c, double d, double prox, double& cx, double& cy, double& cz, double& qx, double& qy, double& qz, double& qw, double& minX, double& maxX, double& minY, double& maxY) {
 
-       calcTableParameters(vA, vB, vC, vD, 0.01, res.detection.table.pose.pose.position.x, res.detection.table.pose.pose.position.y, res.detection.table.pose.pose.position.z, res.detection.table.pose.pose.orientation.x, res.detection.table.pose.pose.orientation.y, res.detection.table.pose.pose.orientation.z, res.detection.table.pose.pose.orientation.w, res.detection.table.x_min, res.detection.table.x_max, res.detection.table.y_min, res.detection.table.y_max);
+       calcTableParameters(vA, vB, vC, vD, 0.01, res.table.pose.pose.position.x, res.table.pose.pose.position.y, res.table.pose.pose.position.z, res.table.pose.pose.orientation.x, res.table.pose.pose.orientation.y, res.table.pose.pose.orientation.z, res.table.pose.pose.orientation.w, res.table.x_min, res.table.x_max, res.table.y_min, res.table.y_max);
+
+
+
+
 
 //	  res.detection.clusters[0].header.seq;
 //	  res.detection.clusters[0].header.stamp;
-	  res.detection.clusters[0].header.frame_id  = std::string("/base_link");
+	  //res.detection.clusters[0].header.frame_id  = std::string("/base_link");
 
+	  pc1.points.clear();
 
+//////////////// Clusters above Table	
           for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
+		  pc1.points.clear();	
+		  pc1.header.frame_id = std::string("/base_link");
+
               for (size_t j = 0; j < abovePlaneClusterSet.at(i).points.size(); j++) {
 
-              res.detection.clusters[i].points[j].x = abovePlaneClusterSet.at(i).points.at(j).x;
-              res.detection.clusters[i].points[j].y = abovePlaneClusterSet.at(i).points.at(j).y;
-              res.detection.clusters[i].points[j].z = abovePlaneClusterSet.at(i).points.at(j).z;
+		point32.x = abovePlaneClusterSet.at(i).points.at(j).x;
+		point32.y = abovePlaneClusterSet.at(i).points.at(j).y;
+		point32.z = abovePlaneClusterSet.at(i).points.at(j).z;
+		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
+		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
+		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
+
+		pc1.points.push_back(point32);
+
 
               }
+	      res.clusters.push_back(pc1);
+
            }
 
-          int sizeOfAbovePlaneCluster = abovePlaneClusterSet.size();
+//////////////// Clusters on Table
+	   for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
+		  pc1.points.clear();	
+		  pc1.header.frame_id = std::string("/base_link");
 
-          for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
               for (size_t j = 0; j < onPlaneClusterSet.at(i).points.size(); j++) {
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].x = onPlaneClusterSet.at(i).points.at(j).x;
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].y = onPlaneClusterSet.at(i).points.at(j).y;
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].z = onPlaneClusterSet.at(i).points.at(j).z;
+
+		point32.x = onPlaneClusterSet.at(i).points.at(j).x;
+		point32.y = onPlaneClusterSet.at(i).points.at(j).y;
+		point32.z = onPlaneClusterSet.at(i).points.at(j).z;
+		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
+		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
+		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
+
+		pc1.points.push_back(point32);
               }
-          }
+	      res.clusters.push_back(pc1);
+
+           }
+
+
+
+
+
 
 
 //	  res.detection.clusters[0].channels[0].name;
@@ -235,10 +287,27 @@ public:
 //	  res.detection.models[0].model_list[0].confidence;
 //	  res.detection.cluster_model_indices[0];
 	  	  
-	  res.detection.result = 4; //SUCCESS
+	  res.result = 4; //SUCCESS
 	  return true;
 	}
 
+
+
+//*******************************************************
+
+void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level) {
+  ROS_INFO("Reconfigure Request: %f %f %f %f %f %f", 
+            config.distAbove, config.colAbove, 
+            config.distOn, config.colOn,
+            config.distMerge, config.colMerge);
+}
+
+
+
+
+
+
+//*******************************************************
 
 	void reducePointCloudByHeight(sensor_msgs::PointCloud2& cloud2, double height) {
 
@@ -596,10 +665,10 @@ public:
 		}
 		cx = cog.x / count; cy = cog.y / count; cz = cog.z / count;
 
-                //qx = q_table.x;
-                //qy = q_table.y;
-                //qz = q_table.z;
-                //qw = q_table.w;
+                qx = 0.0;
+                qy = 0.0;
+                qz = 0.0;
+                qw = 1.0;
 
 
 
