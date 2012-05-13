@@ -74,6 +74,9 @@ void TabletopTrackerROS::publish() {
   // table.x_max = xmax;
   // table.y_min = ymin;
   // table.y_max = ymax;
+    sensor_msgs::PointCloud2 pc;
+    pcl::toROSMsg(*tableHull, pc);
+    cloud_pub.publish(pc);
 
   for (int i=0; i < clusters.size(); i++) {
     sensor_msgs::PointCloud2 pc;
