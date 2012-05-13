@@ -45,7 +45,7 @@ class GatherDetections(smach.State):
         #TODO: start detector
         print 'subscribing'
         rospy.Subscriber('/spinning_tabletop/cylinders',TrackedCylinders,self.handle_detection)
-        sleep_time = 7
+        sleep_time = 15
         print 'waiting for %d seconds' % sleep_time
         rospy.sleep(sleep_time)
             
@@ -112,7 +112,9 @@ class FitCircle(smach.State):
         middle_angle = math.atan2(y[middle_ind,0]-yc,x[middle_ind,0]-xc)
         
         angles = mat(ones((len(userdata.cylinders),1)))
-        for i in range(len(userdata.cylinders)):
+
+        print x.shape, y.shape, len(userdata.cylinders)
+        for i in range(min([len(userdata.cylinders), len(x), len(y)])):
             angles[i,0] = fix_angle(math.atan2(y[i,0]-yc,x[i,0]-xc),middle_angle)
         # prev_angle = angles[0,0]
         # for i in range(len(userdata.cylinders)):
@@ -180,10 +182,10 @@ class ExecuteGrasp(smach.State):
         
         command.rotation_rate = rotation_rate
 
-        print userdata.object_radius, userdata.object_height
-        if userdata.object_radius < .05:
+        print "radius,height",userdata.object_radius, userdata.object_height
+        if userdata.object_radius < .06:
             print "small cylinder"
-            command.outward_angle = pi/2
+            command.outward_angle = 0
         else:
             print "big cylinder"
             command.outward_angle = math.pi/2.3
