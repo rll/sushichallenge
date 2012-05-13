@@ -86,7 +86,7 @@ void TabletopTracker::updateClusters() {
   ColorCloudPtr on_table = getPointsOnTableHull(transformed_cloud, table_hull, table_polygons, table_height+SpinConfig::ABOVE_TABLE_CUTOFF);
 
   //ColorCloudPtr on_table = filterXYZ(transformed_cloud, xmin, xmax, ymin, ymax, table_height+SpinConfig::ABOVE_TABLE_CUTOFF, 1000);
-  if (on_table->size() == 0) throw runtime_error("no points on table");
+  if (on_table->size() < 30) throw runtime_error("not enough points on table");
   cout << "on table: " << on_table->size() << endl;
   vector< vector<int> > cluster_inds = findClusters(on_table,SpinConfig::OBJECT_CLUSTERING_TOLERANCE,SpinConfig::OBJECT_CLUSTER_MIN_SIZE);
   if (cluster_inds.size() == 0) throw runtime_error("no reasonably big clusters found on table");

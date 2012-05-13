@@ -19,13 +19,14 @@ from pr2_tasks.tasks import Tasks
 def create_sm(tasks):
     sm = smach.StateMachine(outcomes=["success",
                                       "failure"])
+    
     with sm:
-        # smach.StateMachine.add("move_arm",
-        #             spinning_table_states.MoveArmToSide(tasks),
-        #             transitions = {"success":"detect",
-        #                            "failure":"failure"
-        #                           }
-        #             )
+        smach.StateMachine.add("move_arm",
+                    spinning_table_states.MoveArmToSide(),
+                    transitions = {"success":"detect",
+                                   "failure":"failure"
+                                  }
+                    )
                     
         smach.StateMachine.add("detect",
                     spinning_table_states.GatherDetections(),
@@ -44,7 +45,8 @@ def create_sm(tasks):
         smach.StateMachine.add("grasp", 
                 spinning_table_states.ExecuteGrasp(),
                     transitions = {"success":"success",
-                                   "failure":"failure"
+                                   "failure":"failure",
+                                   "missed":"detect"
                                   }
                 )
     return sm
