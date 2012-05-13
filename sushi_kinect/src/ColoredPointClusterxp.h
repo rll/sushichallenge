@@ -279,7 +279,7 @@ public:
 
 
 
-	double minClusterDistanceNorm(ColoredPointClusterxp other, double spatialDistanceWeight, double coloredDistanceWeight) { 
+        double minClusterDistanceNorm(ColoredPointClusterxp other, double spatialDistanceWeight, double coloredDistanceWeight) {
 		//average linkage
 		double minDistance = 1000000;
 		double dist = 0;
@@ -287,8 +287,8 @@ public:
 		for (size_t i = 0; i < this->points.size(); i++) {
 			for (size_t j = 0; j < other.points.size(); j++) { 
 				dist = 
-						max(sqrt(pow(this->points.at(i).x - other.points.at(j).x, 2) +  pow(this->points.at(i).y - other.points.at(j).y, 2) + pow(this->points.at(i).z - other.points.at(j).z, 2)) * spatialDistanceWeight,
-								sqrt(pow(this->points.at(i).r - other.points.at(j).r, 2) + pow(this->points.at(i).g - other.points.at(j).g, 2) + pow(this->points.at(i).b - other.points.at(j).b, 2))  * coloredDistanceWeight);
+                                                max(sqrt(pow(this->points.at(i).x - other.points.at(j).x, 2) +  pow(this->points.at(i).y - other.points.at(j).y, 2) + pow(this->points.at(i).z - other.points.at(j).z, 2)) * spatialDistanceWeight,
+                                                                sqrt(pow(this->points.at(i).r - other.points.at(j).r, 2) + pow(this->points.at(i).g - other.points.at(j).g, 2) + pow(this->points.at(i).b - other.points.at(j).b, 2))  * coloredDistanceWeight);
 				if (dist < minDistance) {
 					minDistance = dist;
 				}
