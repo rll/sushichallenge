@@ -45,7 +45,7 @@ class GatherDetections(smach.State):
         #TODO: start detector
         print 'subscribing'
         rospy.Subscriber('/spinning_tabletop/cylinders',TrackedCylinders,self.handle_detection)
-        sleep_time = 15
+        sleep_time = 7
         print 'waiting for %d seconds' % sleep_time
         rospy.sleep(sleep_time)
             
@@ -69,13 +69,13 @@ class GatherDetections(smach.State):
             pt.point.x = detection.xs[i]
             pt.point.y = detection.ys[i]
             pt.point.z = detection.zs[i] + detection.hs[i]
-            self.cylinders[detection.ids[i]].append((pt,detection.rs[i]))
+            self.cylinders[detection.ids[i]].append((pt,detection.rs[i], detection.hs[i]))
         self.num_detections += 1
         
         
 class FitCircle(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=["success", "failure"],input_keys=["cylinders"],output_keys=["center","radius","rotation_rate","init_angle","init_time"])
+        smach.State.__init__(self, outcomes=["success", "failure"],input_keys=["cylinders"],output_keys=["center","radius","rotation_rate","init_angle","init_time","object_radius", "object_height"])
     
     def execute(self, userdata):
         print 'fitting circle'
@@ -85,11 +85,14 @@ class FitCircle(smach.State):
         y = mat(ones((len(userdata.cylinders),1)))
         z = ones(len(userdata.cylinders))
         r = ones(len(userdata.cylinders))
+        h = zeros(len(userdata.cylinders))
         for i in range(len(userdata.cylinders)):
             x[i,0] = userdata.cylinders[i][0].point.x
             y[i,0] = userdata.cylinders[i][0].point.y
             z[i] = userdata.cylinders[i][0].point.z
             r[i] = userdata.cylinders[i][1]
+            h[i] = userdata.cylinders[i][2]
+
             times.append(userdata.cylinders[i][0].header.stamp)
             times_mat[i,0] = userdata.cylinders[i][0].header.stamp.to_sec() - userdata.cylinders[0][0].header.stamp.to_sec()
         
@@ -101,6 +104,7 @@ class FitCircle(smach.State):
         zc = mean(z)
         center_radius = sqrt((a[0]**2+a[1]**2)/4-a[2])
         object_radius = mean(r)
+        object_height = mean(h)
         R  =  center_radius + object_radius
         
         middle_ind = round(len(userdata.cylinders)/2.)
@@ -126,6 +130,8 @@ class FitCircle(smach.State):
         
         userdata.center = Point(xc,yc,zc)
         userdata.radius = R
+        userdata.object_radius = object_radius
+        userdata.object_height = object_height
         userdata.rotation_rate = w
         userdata.init_angle = math.atan2(y[0,0]-yc,x[0,0]-xc)
         userdata.init_time = times[0]
@@ -150,7 +156,7 @@ class FitCircle(smach.State):
 
 class ExecuteGrasp(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=["success", "failure"],input_keys=["center","radius","rotation_rate","init_angle","init_time"])
+        smach.State.__init__(self, outcomes=["success", "failure"],input_keys=["center","radius","rotation_rate","init_angle","init_time","object_radius","object_height"])
     
     def execute(self, userdata):
         center = userdata.center
@@ -173,7 +179,14 @@ class ExecuteGrasp(smach.State):
         command.initial.z = center.z
         
         command.rotation_rate = rotation_rate
-        command.outward_angle = math.pi/2.3
+
+        print userdata.object_radius, userdata.object_height
+        if userdata.object_radius < .05:
+            print "small cylinder"
+            command.outward_angle = pi/2
+        else:
+            print "big cylinder"
+            command.outward_angle = math.pi/2.3
         
         print 'waiting for service'
         rospy.wait_for_service('rotating_grasper')
