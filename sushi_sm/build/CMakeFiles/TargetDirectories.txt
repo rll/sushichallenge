@@ -1,0 +1,15 @@
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/ROSBUILD_genmsg_cpp.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/ROSBUILD_genmsg_lisp.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/ROSBUILD_gensrv_cpp.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/ROSBUILD_gensrv_lisp.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/clean-test-results.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/rosbuild_precompile.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/rosbuild_premsgsrvgen.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/rospack_genmsg.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/rospack_genmsg_libexe.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/rospack_gensrv.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/test.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/test-future.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/test-results.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/test-results-run.dir
+/home/pezzotto/ROS/sushichallenge/sushi_sm/build/CMakeFiles/tests.dir
