@@ -1,0 +1,48 @@
+<!--
+
+This file is for sushi stuff needed in reality and simulation.
+
+-->
+
+<launch>
+  <arg name="stereo" default="false"/>
+  <arg name="model_set" default="SUSHI_MODEL_SET"/>
+  <arg name="kinect_frame_prefix" default="/openni"/>
+
+  <arg name="map_name" default="$(optenv MAP_NAME sdh7)"/>
+  <arg name="map_bt_name" default="$(arg map_name)"/>
+ 
+  <include file="$(find sushi_executive)/launch/pr2_basics_filtered.launch">
+     <arg name="stereo" value="$(arg stereo)"/>
+     <arg name="model_set" value="$(arg model_set)"/>
+     <arg name="kinect_frame_prefix" value="$(arg kinect_frame_prefix)"/>
+  </include>
+  
+  <node pkg="map_server" name="sushi_map" type="map_server" args="$(find sushi_maps)/$(arg map_name).yaml" respawn="true" >
+    <remap from="map" to="map_server_map"/>
+  </node>
+
+  <node machine="c2" name="octomap_server_combined" pkg="octomap_server" type="octomap_server_node" args="$(find sushi_maps)/$(arg map_bt_name).bt" >
+    <param name="resolution" value="0.025" />
+    <param name="sensor_model/range" value="4.0" />
+
+    <param name="sensor_model/hit" value= "0.8" />
+    <param name="sensor_model/miss" value= "0.31" />
+    <param name="sensor_model/min" value= "0.12" />
+    <param name="sensor_model/max" value= "0.95" />
+
+    <param name="min_z_range" value="0.05" />
+    <param name="max_z_range" value="1.8" />
+    <param name="min_x_size" value="25.0" />
+    <param name="min_y_size" value="25.0" />
+
+    <param name="pointcloud_min_z" value="0.10"/>
+    <param name="pointcloud_max_z" value="1.80"/>
+    <param name="filter_ground" value="true"/>
+    <param name="occupancy_min_z" value="0.05"/>
+    <param name="occupancy_max_z" value="2.0"/>
+
+    <remap from="cloud_in" to="/narrow_stereo_textured/points_filtered_attached2" />
+  </node>
+
+</launch>
