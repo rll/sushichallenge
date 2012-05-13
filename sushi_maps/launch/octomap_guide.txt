@@ -1,0 +1,47 @@
+Run teleop 
+roslaunch pr2_teleop teleop_joystick.launch 
+
+Use the joystick to raise the torso 
+Use the joystick to point the head slightly down (and adjust during the run as necessary) 
+
+Preparation
+
+Tuck the arms 
+rosrun pr2_tuckarm tuck_arms.py b 
+
+Make sure you have a 2D map for localization 
+
+Start rviz (NOT on the robot) 
+rosrun rviz rviz `rospack find mapmaking_octomap`/rviz/build_octomap.vcg 
+
+Start the localization node: 
+roslaunch sushi_maps octomap_localization.launch 
+
+Use pose-setting in rviz combined with driving the robot around to make sure the localization is very accurate. 
+
+Run the Octomap node
+
+roslaunch sushi_maps octomap.launch 
+
+The node uses the stereo sensor. Move the head and base around to create a good octomap. 
+Verify that colored points are appearing in rviz corresponding to the octomap 
+To the extent possible, use head movement rather than base movement -> less localization drift 
+Try to keep the head pointed downward, the stereo data gets noisier the farther out the robot looks (try not to look more than 6-8 feet ahead) 
+Tilt the head up to capture walls only when you are close to them in order to prevent getting far off points that are outside the workspace you care about 
+Note
+If you want to update an existing map, pass the location of the map in as an argument:
+roslaunch sushi_maps octomap.launch map_file:=<filepath>
+
+Saving the map
+Once the map is complete:
+roslaunch sushi_maps octomap_saver.launch map_name:=<NEW_MAP_FILENAME>
+(defaults to sdh7)
+
+In sbpl_full_body_planner/config/pr2_both_arms.yaml edit the origin and size parameters. The origin specifies where the origin of the Octomap should be (with respect to the 2D map origin). 
+To set the parameters, you may find it useful to visualize the origin axis and a grid in rviz 
+
+To erase points in an Octomap
+Suggestion: While you are recording the octomap, erase the points before you save it with the map saver. 
+First bring up octomap server with the octomap. The script clean-up-sushi-map.sh in the sushi_executive package can be used to clean up points in a particular volume of the Octomap: 
+octomap_eraser_cli.py min_x min_y min_z max_x max_y max_z 
+Use the map saver to save the map.

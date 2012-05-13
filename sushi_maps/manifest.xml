@@ -1,0 +1,14 @@
+<package>
+  <description brief="sushi maps">
+
+     Map files for sush challenge, so they can be found by rosbash
+
+  </description>
+  <author>Ben Kehoe</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url></url>
+
+</package>
+
+

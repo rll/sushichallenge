@@ -1,0 +1,17 @@
+robot start 
+rosrun rviz rviz 
+Add an rviz map display on topic /map 
+
+Tuck the arms:
+ roslaunch pr2_tuckarm tuck_arms.launch 
+
+Run teleop (preferably on the robot):
+roslaunch pr2_teleop teleop_joystick.launch 
+
+Run gmapping:
+rosrun gmapping slam_gmapping scan:=base_scan _odom_frame:=odom_combined 
+
+Save the map when done (before you kill gmapping):
+roslaunch sushi_maps 2dmap_saver.launch
+#runs rosrun map_server map_saver -f <filename>
+
