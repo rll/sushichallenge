@@ -7,6 +7,9 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/PointCloud.h>
+#include <geometry_msgs/Point32.h>
+
 #include <opencv/cv.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -21,6 +24,10 @@
 #include <pcl_ros/transforms.h>
 
 
+#include <dynamic_reconfigure/server.h>
+#include <sushi_kinect/ParametersConfig.h>
+#include <boost/mem_fn.hpp>
+#include <boost/bind.hpp>
 
 /////////////
 
@@ -32,7 +39,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "ColoredPointClusterxp.h"
-#include "tabletop_object_detector/TabletopDetection.h"
+#include "tabletop_object_detector/TabletopSegmentation.h"
 
 
 #include <tf/transform_listener.h>
@@ -77,12 +84,12 @@ class FindCluster
 	image_transport::Publisher image_pub_;
 
 	ros::NodeHandle n;
-	ros::NodeHandle n2;
+//	ros::NodeHandle n2;
 
 	ros::NodeHandle n_box;
 
-	ros::Publisher cloud_percept;
-	ros::Publisher cloud_vector;
+        ros::Publisher cloud_percept;
+//	ros::Publisher cloud_vector;
 
 	ros::Publisher box_data;
 
@@ -93,6 +100,9 @@ class FindCluster
 
 	pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
         pcl::PointCloud<pcl::PointXYZ> cloud_toRosMsgNoColor;
+
+	sensor_msgs::PointCloud pc1;
+	geometry_msgs::Point32 point32;
 
 	pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
 
@@ -119,10 +129,29 @@ class FindCluster
 
 	static const double VoxelizeLeafSize = 0.01; //0.015
 	static const double maxClusterLength = 0.4;
-	static const double minClusterLength = 0.1;
+        static const double minClusterLength = 0.01;
 	static const double minDistanceAbovePlane = 0.0125;
 	static const double minDistanceUnderPlane = -0.0125;
 	static const double doRANSAC = true;
+
+          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig> server;
+          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig>::CallbackType f;
+
+
+        //receiver of new value
+        double distAboveTable;
+        double colAboveTable;
+        double distOnTable;
+        double colOnTable;
+        double distMergedTable;
+        double colMergedTable;
+
+        double voxelLengthNewValue;
+
+        bool recObjectsAboveTable;
+        bool recObjectsOnTable;
+        bool mrgTableObjects;
+
 
 
 	//Store point cloud data
@@ -162,13 +191,26 @@ public:
 
 
 		cloud_percept = n.advertise<sensor_msgs::PointCloud2>("/bolt/vision/biggest_cloud_cluster", 10);
-		cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
+                //cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
 		box_data = n_box.advertise<std_msgs::Float64MultiArray>("bolt/vision/bounding_box_data", 10);
 
 		service = nh_service_table.advertiseService("find_table", &FindCluster::findTable, this);
 
 		cycleCountPcl = 0;
 		cycleCountImg = 0;
+
+
+                //f = boost::bind<void>(boost::mem_fn(&FindCluster::reconfigureVariables), _1, _2);
+                f = boost::bind(&FindCluster::reconfigureVariables, this, _1, _2);
+		server.setCallback(f);
+
+                 distAboveTable = 0.42;
+                 colAboveTable = 500.0;
+                 distOnTable = 0.39;
+                 colOnTable = 105;
+                 distMergedTable = 0.59;
+                 colMergedTable = 150.0;
+                 voxelLengthNewValue = 0.014;
 
 		captureNow = false;
 	}
@@ -178,69 +220,101 @@ public:
 	}
 
 
-	bool findTable(tabletop_object_detector::TabletopDetection::Request  &req,
-		 tabletop_object_detector::TabletopDetection::Response &res )
+	bool findTable(tabletop_object_detector::TabletopSegmentation::Request  &req,
+		 tabletop_object_detector::TabletopSegmentation::Response &res )
 	{
 	  //res.detection.table.pose.header.seq;
 	  //res.detection.table.pose.header.stamp;
-	  res.detection.table.pose.header.frame_id = std::string("/base_link");
+	  res.table.pose.header.frame_id = std::string("/base_link");
+
 
 // void calcTableParameters(double a, double b, double c, double d, double prox, double& cx, double& cy, double& cz, double& qx, double& qy, double& qz, double& qw, double& minX, double& maxX, double& minY, double& maxY) {
 
-       calcTableParameters(vA, vB, vC, vD, 0.01, res.detection.table.pose.pose.position.x, res.detection.table.pose.pose.position.y, res.detection.table.pose.pose.position.z, res.detection.table.pose.pose.orientation.x, res.detection.table.pose.pose.orientation.y, res.detection.table.pose.pose.orientation.z, res.detection.table.pose.pose.orientation.w, res.detection.table.x_min, res.detection.table.x_max, res.detection.table.y_min, res.detection.table.y_max);
+       calcTableParameters(vA, vB, vC, vD, 0.01, res.table.pose.pose.position.x, res.table.pose.pose.position.y, res.table.pose.pose.position.z, res.table.pose.pose.orientation.x, res.table.pose.pose.orientation.y, res.table.pose.pose.orientation.z, res.table.pose.pose.orientation.w, res.table.x_min, res.table.x_max, res.table.y_min, res.table.y_max);
+
+
+
+
 
 //	  res.detection.clusters[0].header.seq;
 //	  res.detection.clusters[0].header.stamp;
-	  res.detection.clusters[0].header.frame_id  = std::string("/base_link");
+	  //res.detection.clusters[0].header.frame_id  = std::string("/base_link");
 
+	  pc1.points.clear();
 
+//////////////// Clusters above Table	
           for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
+		  pc1.points.clear();	
+		  pc1.header.frame_id = std::string("/base_link");
+
               for (size_t j = 0; j < abovePlaneClusterSet.at(i).points.size(); j++) {
 
-              res.detection.clusters[i].points[j].x = abovePlaneClusterSet.at(i).points.at(j).x;
-              res.detection.clusters[i].points[j].y = abovePlaneClusterSet.at(i).points.at(j).y;
-              res.detection.clusters[i].points[j].z = abovePlaneClusterSet.at(i).points.at(j).z;
+		point32.x = abovePlaneClusterSet.at(i).points.at(j).x;
+		point32.y = abovePlaneClusterSet.at(i).points.at(j).y;
+		point32.z = abovePlaneClusterSet.at(i).points.at(j).z;
+		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
+		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
+		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
+
+		pc1.points.push_back(point32);
+
 
               }
+	      res.clusters.push_back(pc1);
+
            }
 
-          int sizeOfAbovePlaneCluster = abovePlaneClusterSet.size();
+//////////////// Clusters on Table
+	   for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
+		  pc1.points.clear();	
+		  pc1.header.frame_id = std::string("/base_link");
 
-          for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
               for (size_t j = 0; j < onPlaneClusterSet.at(i).points.size(); j++) {
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].x = onPlaneClusterSet.at(i).points.at(j).x;
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].y = onPlaneClusterSet.at(i).points.at(j).y;
-                  res.detection.clusters[i].points[sizeOfAbovePlaneCluster+j].z = onPlaneClusterSet.at(i).points.at(j).z;
+
+		point32.x = onPlaneClusterSet.at(i).points.at(j).x;
+		point32.y = onPlaneClusterSet.at(i).points.at(j).y;
+		point32.z = onPlaneClusterSet.at(i).points.at(j).z;
+		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
+		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
+		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
+
+		pc1.points.push_back(point32);
               }
-          }
+	      res.clusters.push_back(pc1);
 
+           }
 
-//	  res.detection.clusters[0].channels[0].name;
-//	  res.detection.clusters[0].channels[0].values[0];
-
-//	  res.detection.models[0].model_list[0].model_id;
-//	  res.detection.models[0].model_list[0].pose.header.seq;
-//	  res.detection.models[0].model_list[0].pose.header.stamp;
-//	  res.detection.models[0].model_list[0].pose.header.frame_id;
-	  
-//	  res.detection.models[0].model_list[0].pose.pose.position.x;	  
-//	  res.detection.models[0].model_list[0].pose.pose.position.y;	  
-//	  res.detection.models[0].model_list[0].pose.pose.position.z;	  
-
-//	  res.detection.models[0].model_list[0].pose.pose.orientation.x;	  
-//	  res.detection.models[0].model_list[0].pose.pose.orientation.y;	  
-//	  res.detection.models[0].model_list[0].pose.pose.orientation.z;	  
-//	  res.detection.models[0].model_list[0].pose.pose.orientation.w;	  
-
-//	  res.detection.models[0].model_list[0].confidence;
-//	  res.detection.cluster_model_indices[0];
-	  	  
-	  res.detection.result = 4; //SUCCESS
+	  res.result = 4; //SUCCESS
 	  return true;
 	}
 
 
-	void reducePointCloudByHeight(sensor_msgs::PointCloud2& cloud2, double height) {
+
+//*******************************************************
+
+void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level) {
+  ROS_INFO("Reconfigure Request: %f %f %f %f %f %f %f",
+            config.distAbove, config.colAbove, 
+            config.distOn, config.colOn,
+            config.distMerge, config.colMerge, config.voxelLength);
+
+  distAboveTable = config.distAbove;
+  colAboveTable = config.colAbove;
+  distOnTable = config.distOn;
+  colOnTable = config.colOn;
+  distMergedTable = config.distMerge;
+  colMergedTable = config.colMerge;
+  voxelLengthNewValue = config.voxelLength;
+  recObjectsAboveTable = config.bool_RecognizeObjectsAboveTable;
+  recObjectsOnTable = config.bool_RecognizeObjectsOnTable;
+  mrgTableObjects = config.bool_MergeTableObjects;
+}
+
+
+
+//*******************************************************
+
+        void reducePointCloudByHeight(sensor_msgs::PointCloud2& cloud2, double height, bool higher = true) {
 
 
 		pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
@@ -251,10 +325,9 @@ public:
 
 		while (i < cloud_toRosMsg.points.size()) {
 
-			if (
-					(cloud_toRosMsg.points[i].z < height)
 
-			)
+                        if (((cloud_toRosMsg.points[i].z < height) && (higher == true)) ||
+                                ((cloud_toRosMsg.points[i].z > height) && (higher == false)))
 			{
 				cloud_toRosMsg.erase(cloud_toRosMsg.begin()+i);
 
@@ -348,21 +421,45 @@ public:
 
 
 	/********************************************************************/
-	std::vector<ColoredPointClusterxp> avgLinkageClusterSet(std::vector<ColoredPointClusterxp> abovePlaneClusterSetIn, double distWeight, double colWeight, double distanceBound) {
-		for (size_t i = 0; i < abovePlaneClusterSetIn.size (); i++) {
+        void avgLinkageClusterSet(std::vector<ColoredPointClusterxp>& clusterSetIn, double distWeight, double colWeight, double distanceBound) {
+                for (size_t i = 0; i < clusterSetIn.size (); i++) {
 			size_t j = i + 1;
-			while (j < abovePlaneClusterSetIn.size ()) {
-				if (abovePlaneClusterSetIn.at(i).avgClusterDistanceNorm(abovePlaneClusterSetIn.at(j), distWeight, colWeight) <= distanceBound) {
-					abovePlaneClusterSetIn.at(i).mergeWithCluster(abovePlaneClusterSetIn.at(j)); //merge
-					abovePlaneClusterSetIn.erase(abovePlaneClusterSetIn.begin()+j);  // ... delete,
-				}
+                        while (j < clusterSetIn.size ()) {
+                            if (clusterSetIn.at(i).avgClusterDistanceNorm(clusterSetIn.at(j), distWeight, colWeight) < distanceBound) {
+                                //ROS_INFO("merging %d %d %f %f", i, j, clusterSetIn.size(), distanceBound);
+                                clusterSetIn.at(i).mergeWithCluster(clusterSetIn.at(j)); //merge
+                                clusterSetIn.erase(clusterSetIn.begin()+j);  // ... delete,
+                            }
 				else {
+
+                               // ROS_INFO("not merging %d %d %f %f", i, j, (clusterSetIn.at(i).avgClusterDistanceNorm(clusterSetIn.at(j), distWeight, colWeight)), distanceBound);
+
 					j++;
 				}
 			}
 		}
-		return abovePlaneClusterSetIn;
 	}
+
+
+        /********************************************************************/
+        void avgLinkageClusterSetTwoSources(std::vector<ColoredPointClusterxp>& clusterSetIn_A, std::vector<ColoredPointClusterxp>& clusterSetIn_B, double distWeight, double colWeight, double distanceBound) {
+                for (size_t i = 0; i < clusterSetIn_A.size (); i++) {
+                        size_t j = 0;
+                        while (j < clusterSetIn_B.size ()) {
+                                if (clusterSetIn_A.at(i).avgClusterDistanceNorm(clusterSetIn_B.at(j), distWeight, colWeight) <= distanceBound) {
+                                        clusterSetIn_A.at(i).mergeWithCluster(clusterSetIn_B.at(j)); //merge
+                                        clusterSetIn_B.erase(clusterSetIn_B.begin()+j);  // ... delete,
+                                }
+                                else {
+                                        j++;
+                                }
+                        }
+                }
+        }
+
+
+
+
 
 
 	/********************************************************************/
@@ -370,9 +467,9 @@ public:
 		for (size_t i = 0; i < clusterSetIn.size (); i++) {
 			size_t j = i + 1;
 			while (j < clusterSetIn.size ()) {
-				if (clusterSetIn.at(i).minClusterDistanceNorm(clusterSetIn.at(j), distWeight, colWeight) <= distanceBound) {
+                                if (clusterSetIn.at(i).minClusterDistanceNorm(clusterSetIn.at(j), distWeight, colWeight) < distanceBound) {
 					clusterSetIn.at(i).mergeWithCluster(clusterSetIn.at(j)); //merge
-					clusterSetIn.erase(clusterSetIn.begin()+j);  // ... delete,
+                                        clusterSetIn.erase(clusterSetIn.begin()+j);  // ... delete,
 				}
 				else {
 					j++;
@@ -389,7 +486,7 @@ public:
 			while (j < clusterSetIn_B.size ()) {
 				if (clusterSetIn_A.at(i).minClusterDistanceNorm(clusterSetIn_B.at(j), distWeight, colWeight) <= distanceBound) {
 					clusterSetIn_A.at(i).mergeWithCluster(clusterSetIn_B.at(j)); //merge
-					clusterSetIn_B.erase(clusterSetIn_B.begin()+j);  // ... delete,
+                                        clusterSetIn_B.erase(clusterSetIn_B.begin()+j);  // ... delete,
 				}
 				else {
 					j++;
@@ -596,10 +693,10 @@ public:
 		}
 		cx = cog.x / count; cy = cog.y / count; cz = cog.z / count;
 
-                //qx = q_table.x;
-                //qy = q_table.y;
-                //qz = q_table.z;
-                //qw = q_table.w;
+                qx = 0.0;
+                qy = 0.0;
+                qz = 0.0;
+                qw = 1.0;
 
 
 
@@ -609,6 +706,42 @@ public:
 	}
 
 
+        /********************************************************************/
+        void findTableColorGridCluster(pcl::PointCloud<pcl::PointXYZRGB>& pCloud) {
+
+            int grid1[4][4][4];
+            int grid2[4][4][4];
+
+
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        grid1[i][j][k] = grid2[i][j][k] = 0;
+                    }}}
+
+            for (size_t i = 0; i < pCloud.size(); i++) {
+                if (fabs(signedPointPlaneDistance(pCloud.at(i).x, pCloud.at(i).y, pCloud.at(i).z, vA, vB, vC, vD)) > 0.01)
+                    continue;
+
+                grid1[(((int)(pCloud.at(i).r)) / 4)%4][(((int)(pCloud.at(i).g)) / 4)%4][(((int)(pCloud.at(i).b)) / 4)%4]++;
+              //  grid2[(((int)(pCloud.at(i).r + 32)) / 4)%4][(((int)(pCloud.at(i).g + 32)) / 4)%4][(((int)(pCloud.at(i).b + 32)) / 4)%4]++;
+            }
+
+            int i1_max, j1_max, k1_max, count1_max; i1_max = j1_max = k1_max = count1_max = 0;
+            //int i2_max, j2_max, k2_max, count2_max; i2_max = j2_max = k2_max = count2_max = 0;
+
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        if (grid1[i][j][k] > count1_max) {count1_max = grid1[i][j][k]; i1_max = i; j1_max = j; k1_max = k;}
+                   //     if (grid2[i][j][k] > count2_max) {count2_max = grid2[i][j][k]; i2_max = i; j2_max = j; k2_max = k;}
+                    }}}
+
+            ROS_INFO(" %d %d %d %d", i1_max, j1_max, k1_max, count1_max);
+            //ROS_INFO(" %d %d %d %d", i2_max, j2_max, k2_max, count2_max);
+
+
+        }
 
 
 
@@ -616,6 +749,11 @@ public:
 
 	void cloudSCb(const sensor_msgs::PointCloud2ConstPtr& input)
 	{
+            double t = (double)cv::getTickCount();
+
+            t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+         //   std::cout << "Times passed at 0 : " << t << std::endl;
+
 
 		try{
 			transformationWorked = pcl_ros::transformPointCloud("/base_link", *input, *cloud_transformed_ptr, listener);
@@ -647,15 +785,19 @@ public:
 
 		//Voxelization continues
 		sor.setInputCloud (cloud_transformed_ptr); //USED TO BE INPUT
-		sor.setLeafSize (VoxelizeLeafSize, VoxelizeLeafSize, VoxelizeLeafSize);
+                sor.setLeafSize (voxelLengthNewValue, voxelLengthNewValue, voxelLengthNewValue);
 		sor.filter (cloud_voxelized);
 
 		cycleCountPcl++;
 
 		// delete all points closer 0.5 m to the ground
-		reducePointCloudByHeight(cloud_voxelized, 0.50);
+                reducePointCloudByHeight(cloud_voxelized, 0.50, true);
 
-		//converte to RosPointCloud
+          //      t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+          //      std::cout << " Times passed after voxelization : " << t << std::endl;
+
+
+                //convert to RosPointCloud
 
 
                 try {
@@ -687,7 +829,6 @@ public:
 			if (number > maxLocalNr_1) {maxLocalHeight_1 = height_1; maxLocalNr_1 = number;}
 			//ROS_INFO("1 - Points in height %f, proximity %f, number %d ", height_1, stepsize_1, number);
 		}
-		//ROS_INFO("1 - Height: %f", maxLocalHeight_1);
 
 		double stepsize_2 = 0.01; 
 		int maxLocalNr_2 = 0; 
@@ -698,7 +839,6 @@ public:
 			if (number > maxLocalNr_2) {maxLocalHeight_2 = height_2; maxLocalNr_2 = number;}
 			//ROS_INFO("2 - Points in height %f, proximity %f, number %d ", height_2, stepsize_2, number);
 		}
-		//ROS_INFO("2.0 - Height: %f , Points: %d", maxLocalHeight_2, maxLocalNr_2);
 
 		vD = -maxLocalHeight_2;
 
@@ -716,14 +856,6 @@ public:
 			//		ROS_INFO("xxxxx 3 - Points in angle %f, number %d ", xBestLocalAngle, xMaxPointsForAngle);
 
 		}
-
-		//	ROS_INFO("3 - Points in angle %f, xMaxPointsForAngle %d ", xBestLocalAngle, xMaxPointsForAngle);
-
-
-
-		//		0		1	0		0		0
-		//		-sin(a)	=	0	cos(a)    -sin(a)	*	0
-		//		cos(a)		0	sin(a)	   cos(a)		1
 
 		vB =  cos(xBestLocalAngle)*vB-sin(xBestLocalAngle)*vC; 
 		vC =  sin(xBestLocalAngle)*vB+cos(xBestLocalAngle)*vC;
@@ -759,14 +891,6 @@ public:
 			if (number > yMaxPointsForAngle) {yBestLocalAngle = yAngle; yMaxPointsForAngle = number;}
 		}
 
-		//	ROS_INFO("4 - Points in angle %f, yMaxPointsForAngle %d ", yBestLocalAngle, yMaxPointsForAngle);
-
-
-
-		//		-sin(a)		cos(a)	0	  -sin(a)		0
-		//		0	=	0	1	       0	*	0
-		//		cos(a)		sin(a)	0	   cos(a)		1
-
 		vA =  cos(yBestLocalAngle)*vA-sin(yBestLocalAngle)*vC; 
 		vC =  sin(yBestLocalAngle)*vA+cos(yBestLocalAngle)*vC;
 
@@ -793,47 +917,10 @@ public:
 		coeffManual[2] = vC;
 		coeffManual[3] = vD;
 
-		/////calculate table params
-
-
-		/* SAC Starts */
-		/*
-
-		pcl::ModelCoefficients coefficients;
-		pcl::PointIndices inliers;
-		// Create the segmentation object
-		pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-		// Optional
-		seg.setOptimizeCoefficients (true);
-		// Mandatory
-		seg.setModelType (pcl::SACMODEL_PLANE);
-		seg.setMethodType (pcl::SAC_RANSAC);
-		seg.setDistanceThreshold (0.05); //0.01
-
-		seg.setInputCloud (cloud_toRosMsg.makeShared ());
-
-		seg.segment (inliers, coefficients);
-
-		if (coefficients.values.size() > 3) {
-			coeffManual[0] = coefficients.values.at(0);
-			coeffManual[1] = coefficients.values.at(1);
-			coeffManual[2] = coefficients.values.at(2);
-			coeffManual[3] = coefficients.values.at(3);
-		} else {
-			ROS_INFO("RANSAC FAILED");
-		}
-
-		 */
-		/* SAC End */
-
-
 
 		pcl::PointXYZRGB rgbdPixel;
 		pcl::PointXYZRGB planeRgbdPixel;
 
-		//if (cycleCountImg%100 == 0) {
-		//	ROS_INFO("A: %f B: %f C: %f D: %f Cyc %d", coeffManual[0], coeffManual[1], coeffManual[2], coeffManual[3], cycleCountImg);
-		//}
 
 		for (size_t i = 0; i < cloud_toRosMsg.points.size (); i++)
 		{
@@ -873,43 +960,46 @@ public:
 		abovePlaneClusterSet = createClusterSet(abovePlanePixelSet);
 		onPlaneClusterSet = createClusterSet(onPlanePixelSet);
 
-		//ROS_INFO(":CloudSCb: 2 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
-
-		//double stepSize = 0.02;
-		//double upperLimit = 0.2;
-		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1)); a++) {
-			singleLinkageClusterSet(abovePlaneClusterSet, 2.0, 0.001, 0.2);
+                //Clusters Above Plane
+                if (recObjectsAboveTable) {
+                for (int a = 0; ((a < 5) && (abovePlaneClusterSet.size() > 1)); a++) {
+                    singleLinkageClusterSet(abovePlaneClusterSet, 1.0 / distAboveTable, 1.0 / colAboveTable, 1.0 / 5.0);
 		}
-		eraseBigPlaneCluster(abovePlaneClusterSet);
-		eraseSmallPlaneCluster(abovePlaneClusterSet);
+                eraseBigPlaneCluster(abovePlaneClusterSet);
+                eraseSmallPlaneCluster(abovePlaneClusterSet);
+                }
+
+                //second ontable step
+                for (int a = 0; ((a < 5) && (onPlaneClusterSet.size() > 1)); a++) {
+                    avgLinkageClusterSet(abovePlaneClusterSet, 1.0 / distMergedTable, 1.0 / colMergedTable, 1.0 / 5.0);
+                }
 
 
+                //////////////Clusters on Plane
+                if (recObjectsOnTable) {
 
-		//Clusters on Plane
-		for (int a = 0; ((a < 10) && (onPlaneClusterSet.size() > 1)); a++) {
-//			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.001, 0.03);
-			singleLinkageClusterSet(onPlaneClusterSet, 1.0, 0.0005, 0.3);
+                for (int a = 0; ((a < 5) && (onPlaneClusterSet.size() > 1)); a++) {
+                    singleLinkageClusterSet(onPlaneClusterSet, 1.0 / distOnTable, 1.0 / colOnTable, 1.0 / 5.0);
 		}
-		eraseBigPlaneCluster(onPlaneClusterSet);
-		eraseSmallPlaneCluster(onPlaneClusterSet);
+                eraseBigPlaneCluster(onPlaneClusterSet);
+                eraseSmallPlaneCluster(onPlaneClusterSet);
+                }
+
+                //second ontable step
+                for (int a = 0; ((a < 5) && (onPlaneClusterSet.size() > 1)); a++) {
+                    avgLinkageClusterSet(onPlaneClusterSet, 1.0 / distMergedTable, 1.0 / colMergedTable, 1.0 / 5.0);
+                }
 
 
-		for (int a = 0; ((a < 10) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a ++) {
-			singleLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 4.0, 0.0, 0.2);
+
+                //Merge Table Objects
+                if (mrgTableObjects) {
+                for (int a = 0; ((a < 5) && (abovePlaneClusterSet.size() > 1) && (onPlaneClusterSet.size() > 1)); a++) {
+                    avgLinkageClusterSetTwoSources(abovePlaneClusterSet, onPlaneClusterSet, 1.0 / distMergedTable, 1.0 / colMergedTable, 1.0 / 5.0);
 		}
-		eraseBigPlaneCluster(abovePlaneClusterSet);
-		eraseSmallPlaneCluster(abovePlaneClusterSet);
-
-
-
-		//ROS_INFO(":CloudSCb: 6 aboveSet: %d, onSet: %d", (int)abovePlaneClusterSet.size(), (int)onPlaneClusterSet.size());
-
-
-		//---------------------------------------------------------------A
-
-
-		//assignTrackingIds(abovePlaneClusterSet, lastabovePlaneClusterSet);
-		//assignTrackingIds(onPlaneClusterSet, lastonPlaneClusterSet);
+                eraseBigPlaneCluster(abovePlaneClusterSet);
+                eraseSmallPlaneCluster(abovePlaneClusterSet);
+                }
 
 
 		sensor_msgs::PointCloud2 publishedClusterPC2;
@@ -919,7 +1009,7 @@ public:
 
 		pcl::PointXYZRGB helpPoint;
 
-		geometry_msgs::Vector3 bestCluster;
+                //geometry_msgs::Vector3 bestCluster;
 		int maxClusterSize = 0;
 		int maxClusterID = 0;
 
@@ -944,15 +1034,6 @@ public:
 			}
 
 
-
-
-
-
-
-			bestCluster.x = abovePlaneClusterSet.at(maxClusterID).center.x;
-			bestCluster.y = abovePlaneClusterSet.at(maxClusterID).center.y;
-			bestCluster.z = abovePlaneClusterSet.at(maxClusterID).center.z;
-
 			for (size_t j = 0; j < abovePlaneClusterSet.at(maxClusterID).points.size(); j++) {
 				helpPoint.x = abovePlaneClusterSet.at(maxClusterID).points.at(j).x;
 				helpPoint.y = abovePlaneClusterSet.at(maxClusterID).points.at(j).y;
@@ -966,7 +1047,7 @@ public:
 
 			}
 		} else {
-			bestCluster.x = bestCluster.y = 0; bestCluster.z = 1;
+
 		}
 
 		//****************************************
@@ -986,12 +1067,7 @@ public:
 		}
 
 
-
-
-
-
-
-		pcl::toROSMsg(publishCluster, publishedClusterPC2);
+                pcl::toROSMsg(publishCluster, publishedClusterPC2);
 		publishedClusterPC2.header.frame_id = std::string("/base_link");
 
 		cloud_percept.publish(publishedClusterPC2); // is still empty
@@ -999,16 +1075,6 @@ public:
 
 		box_data.publish(bounding_box_data_to_publish);
 
-
-		//dim: [{label: 'x', size: 1234, stride: 1},{label: 'y', size: 1234,
-		//stride: 1} ]
-
-		//bounding_box_data_to_publish.data[0] = 0.0; 
-
-		//ROS_INFO(" Best Cluster: X: %f | Y: %f | Z: %f" ,bestCluster.x , bestCluster.y , bestCluster.z);
-		//	ROS_INFO("FOO");
-
-		cloud_vector.publish(bestCluster);
 		lastabovePlaneClusterSet = abovePlaneClusterSet;
 
 	}
@@ -1018,7 +1084,7 @@ public:
 
 	/********************************************************************/
 	void imageSCb(const sensor_msgs::ImageConstPtr& msg)
-	{
+        {
 
 		if (cycleCountImg%10 == 0)
 			std::cerr << "new image data received " << std::endl;
@@ -1048,7 +1114,7 @@ public:
 			return;
 			ROS_INFO("transformation failed");
 
-			//drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
+                        //drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
 			//drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
 		} else {
 
@@ -1057,10 +1123,13 @@ public:
 				dumpOut(cv_ptr, abovePlaneClusterSet, onPlanePixelSet, false);
 				std::cerr << "Capturing ... Raw" << std::endl;
 			}
+                         if (recObjectsAboveTable) {
+                        drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
+                         }
 
-			drawClusterPoints(cv_ptr, abovePlaneClusterSet, false);  //only above table
-			drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
-
+                         if (recObjectsOnTable) {
+                        drawClusterPoints(cv_ptr, onPlaneClusterSet, true);  //on table
+                        }
 			//			for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
 			//				ROS_INFO("ClusterSize %d , %d " , i, abovePlaneClusterSet.at(i).boundingBoxPoints.size());
 			//			}
@@ -1202,16 +1271,27 @@ public:
 
 			//ROS_INFO("Numof BBP: %d ", boundingBoxPointsImgPlane.size());		
 
-			if (boundingBoxPointsImgPlane.size() == 8) {
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(1), CV_RGB(250, 250, 250));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(2), CV_RGB(250, 250, 250));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(3), CV_RGB(250, 250, 250));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(0), CV_RGB(250, 250, 250));
+                        //Draw Bounding boxes
 
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(4), CV_RGB(250, 50, 50));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(5), CV_RGB(250, 50, 50));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(6), CV_RGB(250, 50, 50));
-				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(7), CV_RGB(250, 50, 50));
+                        int bC_R, bC_G, bC_B;
+
+
+			if (boundingBoxPointsImgPlane.size() == 8) {
+                            if (isOnTable) {
+                                bC_R = 0; bC_G = 255; bC_B = 0;
+                            }  else {
+                                bC_R = 255; bC_G = 0; bC_B = 0;
+                            }
+
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(1), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(2), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(3), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(0), CV_RGB(bC_R, bC_G, bC_B));
+
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(0), boundingBoxPointsImgPlane.at(4), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(1), boundingBoxPointsImgPlane.at(5), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(2), boundingBoxPointsImgPlane.at(6), CV_RGB(bC_R, bC_G, bC_B));
+                                cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(3), boundingBoxPointsImgPlane.at(7), CV_RGB(bC_R, bC_G, bC_B));
 
 				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(4), boundingBoxPointsImgPlane.at(5), CV_RGB(50, 50, 50));
 				cv::line(cv_ptr->image, boundingBoxPointsImgPlane.at(5), boundingBoxPointsImgPlane.at(6), CV_RGB(50, 50, 50));
@@ -1224,10 +1304,10 @@ public:
 			for (size_t i = 0; i < clusterSet.at(c).points.size(); i++) {
 				calculateImagePositionFrom3dPoint(clusterSet.at(c).points.at(i).x, clusterSet.at(c).points.at(i).y, clusterSet.at(c).points.at(i).z, cv_ptr->image.cols, cv_ptr->image.rows, OpeningAngleHorizontal, OpeningAngleVertical, pix_x, pix_y);
 
-				int pixs = 1;
+                                int pixs = 1;
 
 				if (isPointWithinBoundaries(0, cv_ptr->image.cols, 0, cv_ptr->image.rows, pixs, pixs, pix_x, pix_y)) {
-					cv::Point pointP1(pix_x-pixs, pix_y-pixs);
+                                        cv::Point pointP1(pix_x, pix_y);
 					cv::Point pointP2(pix_x+pixs, pix_y+pixs);
 
 					clusterSet.at(c).trackingId = c;
