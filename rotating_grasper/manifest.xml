@@ -1,0 +1,27 @@
+<package>
+  <description brief="rotating_grasper">
+
+     rotating_grasper
+
+  </description>
+  <author>Ben Kehoe</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rotating_grasper</url>
+	<depend package="rospy"/>
+  <depend package="std_msgs"/>
+  <depend package="std_srvs"/>
+  <depend package="tf"/>
+  <depend package="geometry_msgs"/>
+
+<!--
+  <depend package="rll_utils"/>
+  <depend package="pr2_simple_motions_msgs"/>
+  <depend package="pr2_simple_arm_motions"/>
+  <depend package="pr2_simple_head_motions"/>
+-->
+	<depend package="pr2_python"/>
+
+</package>
+
+

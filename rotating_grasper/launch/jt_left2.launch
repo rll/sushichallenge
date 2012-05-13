@@ -1,0 +1,37 @@
+<launch>
+
+<node name="stop_l_arm"
+	pkg="pr2_controller_manager"
+	type="unspawner"
+	args="l_arm_controller" />
+
+ <rosparam ns="l_cart">
+l_cartesian_inv:
+  type: JinvTeleopController7
+  root_name: torso_lift_link
+  tip_name: l_gripper_tool_frame
+  k_posture: 20.0
+  jacobian_inverse_damping: 0.01
+  pose_command_filter: 0.01
+  cart_gains:
+    trans:
+      p: 800.0
+      d: 15.0
+    rot:
+      p: 80.0
+      d: 1.2
+  joints:
+    l_shoulder_pan_joint:   {p: 2400.0, d: 18.0, ff: 10.0, p_clamp: 0.087}
+    l_shoulder_lift_joint:  {p: 1200.0, d: 10.0, ff: 10.0, p_clamp: 0.087}
+    l_upper_arm_roll_joint: {p: 1000.0, d: 6.0,  ff: 8.0,  p_clamp: 0.087}
+    l_elbow_flex_joint:     {p: 700.0,  d: 4.0,  ff: 5.0,  p_clamp: 0.087}
+    l_forearm_roll_joint:   {p: 300.0,  d: 6.0,  ff: 5.0,  p_clamp: 0.087}
+    l_wrist_flex_joint:     {p: 300.0,  d: 4.0,  ff: 2.0,  p_clamp: 0.087}
+    l_wrist_roll_joint:     {p: 300.0,  d: 4.0,  ff: 2.0,  p_clamp: 0.087}
+  vel_saturation_trans: 1.0
+  vel_saturation_rot: -1
+ </rosparam>
+<node name="spawn_l_cart"
+       pkg="pr2_controller_manager" type="spawner"
+       args="l_cart" />
+</launch>

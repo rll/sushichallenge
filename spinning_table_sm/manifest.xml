@@ -1,0 +1,23 @@
+<package>
+  <description brief="spinning_table_sm">
+
+     spinning_table_sm
+
+  </description>
+  <author>Ben Kehoe</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/spinning_table_sm</url>
+  <depend package="rospy"/>
+  <depend package="rotating_grasper"/>
+  <depend package="misc_msgs"/>
+  <depend package="misc_srvs"/>
+  <depend package="smach"/>
+  <depend package="smach_ros"/>
+  <depend package="roslib"/>
+  <depend package="pr2_python"/>
+  <depend package="pr2_tasks"/>
+
+</package>
+
+
