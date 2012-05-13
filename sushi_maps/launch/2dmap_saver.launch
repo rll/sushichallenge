@@ -1,0 +1,5 @@
+<launch>
+  <arg name="map_name" default="$(optenv MAP_NAME sdh7)"/>
+  
+  <node pkg="map_server" name="map_saver" type="map_saver" args="-f $(find sushi_maps)/$(arg map_name)"/>
+</launch>

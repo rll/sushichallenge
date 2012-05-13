@@ -1,0 +1,16 @@
+<package>
+  <description brief="sensing_placer">
+
+     sensing_placer
+
+  </description>
+  <author>Christopher Crick</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/sensing_placer</url>
+  <depend package="rospy"/>
+  <depend package="pr2_python"/>
+
+</package>
+
+
