@@ -12,7 +12,6 @@ from pr2_python.planning_scene_interface import get_planning_scene_interface
 from pr2_python import transform_listener
 import dynamic_reconfigure.client
 from sushi_sm.world_definitions import WorldState, PickableObject
-from object_manipulation_msgs.srv import FindClusterBoundingBox
 from pr2_python.find_free_space import free_spots
 from geometry_msgs.msg import Point
 from pr2_python.transform_listener import transform_point
@@ -111,7 +110,8 @@ class PickUp(smach.State):
         rospy.loginfo("Using arm %s", goal.arm_name)
         try:
             self.tasks.go_and_pickup(goal.arm_name,pose,goal.label)
-        except:
+        except Exception, e:
+            rospy.logerr("Error while executing pickup: %s", e)
             self.world.failed_to_pickup = goal
             return "failure"
        
@@ -285,8 +285,7 @@ class RoundRobinTableMover(smach.State):
         z = pos[2]
         rospy.loginfo("Trying to go to %s", (x,y,z))
         try:
-            self.base.move_manipulable_pose(x, y, z, 
-                    try_hard = True, group="torso")
+            self.base.move_to(x, y, z,)
         except:
             raise
             return "failure"
@@ -342,11 +341,11 @@ class PlaceDown(smach.State):
             return "still_holding"
 
 class PlaceDownFreeSpace(smach.State):
-    def __init__(self, world, placer_l, placer_r, detector):
+    def __init__(self, world, placer_l, placer_r, detector, find_box):
         smach.State.__init__(self, outcomes=["success", "failure",
             "still_holding"])
-        rospy.loginfo("Waiting for find_cluster_bounding_box2 service")
-        self.find_box = rospy.ServiceProxy("/find_cluster_bounding_box", FindClusterBoundingBox)
+        
+        self.find_box = find_box
         self.world = world
         self.placer_l = placer_l
         self.placer_r = placer_r
@@ -429,16 +428,56 @@ class LookAtTable(smach.State):
         self.head.look_at_relative_point(x,y,z)
         
         depth = 1.2
-        params = { 'filter_limit_min' : 0, 'filter_limit_max' : depth}
+        params = {'filter_limit_min' : 0, 'filter_limit_max' : depth,
+                  'input_frame':"/base_footprint"}
         self.filter_x.update_configuration(params)
         
-        params = { 'filter_limit_min' : -width/2., 'filter_limit_max' : width/2. }
+        params = {'filter_limit_min' : -width/2., 'filter_limit_max' : width/2.,
+                  'input_frame':"/base_footprint"}
         self.filter_y.update_configuration(params)
         
-        params = { 'filter_limit_min' : height-0.2, 'filter_limit_max' : height+0.5 }    
+        params = {'filter_limit_min' : height-0.2, 'filter_limit_max' : height+0.5,
+                  'input_frame':"/base_footprint"}    
         self.filter_z.update_configuration(params)
         return "success"
+
+class LookAtObjectPickup(smach.State):        
+    def __init__(self, world, head):
+        smach.State.__init__(self, outcomes=["success"])
+        self.world = world
+        self.head = head
+                
+        self.filter_x = dynamic_reconfigure.client.Client("/pcl_filters/psx")
+        self.filter_y = dynamic_reconfigure.client.Client("/pcl_filters/psy")
+        self.filter_z = dynamic_reconfigure.client.Client("/pcl_filters/psz")
+    
+    def execute(self, userdata):
+        target = self.world.pickup_next
+        pos = transform_listener.transform_pose_stamped("/map", 
+                                                        target.pose_stamped)
+                
+        x = pos.pose.position.x
+        y = pos.pose.position.y
+        z = pos.pose.position.z
+
+        self.head.look_at_map_point(x,y,z)
         
+        depth = x + .20
+        params = {'filter_limit_min' : 0, 'filter_limit_max' : depth,
+                  'input_frame':"/map"}
+        self.filter_x.update_configuration(params)
+        
+        width = 0.50
+        params = {'filter_limit_min' : y-width/2., 'filter_limit_max' : y+width/2.,
+                  'input_frame':"/map"}
+        self.filter_y.update_configuration(params)
+        
+        height = 0.50
+        params = {'filter_limit_min' : z-height/2, 'filter_limit_max' : z+height/2,
+                  'input_frame':"/map"}    
+        self.filter_z.update_configuration(params)
+        return "success"
+      
 class LookAtShelf(smach.State):        
     def __init__(self, world, head, shelf_number):
         smach.State.__init__(self, outcomes=["success"])
@@ -462,13 +501,16 @@ class LookAtShelf(smach.State):
         z = min_height
         self.head.look_at_relative_point(x,y,z)
         
-        params = { 'filter_limit_min' : 0, 'filter_limit_max' : 1.0 + depth}
+        params = {'filter_limit_min' : 0, 'filter_limit_max' : 1.0 + depth,
+                 'input_frame':"/base_footprint"}
         self.filter_x.update_configuration(params)
         
-        params = { 'filter_limit_min' : -width/2., 'filter_limit_max' : width/2. }
+        params = {'filter_limit_min' : -width/2., 'filter_limit_max' : width/2.,
+                  'input_frame':"/base_footprint"}                  
         self.filter_y.update_configuration(params)
         
-        params = { 'filter_limit_min' : min_height-0.2, 'filter_limit_max' : max_height -0.05}    
+        params = {'filter_limit_min' : min_height-0.2, 'filter_limit_max' : max_height -0.05,
+                  'input_frame':"/base_footprint"}                      
         self.filter_z.update_configuration(params)
         return "success"    
 
@@ -481,13 +523,16 @@ class EnableFullView(smach.State):
         self.filter_z = dynamic_reconfigure.client.Client("/pcl_filters/psz")
     
     def execute(self, userdata):
-        params = { 'filter_limit_min' : -5, 'filter_limit_max' : 5.0}
+        params = {'filter_limit_min' : -5, 'filter_limit_max' : 5.0,
+                  'input_frame':"/base_footprint"}
         self.filter_x.update_configuration(params)
         
-        params = { 'filter_limit_min' : -5., 'filter_limit_max' : 5. }
+        params = {'filter_limit_min' : -5., 'filter_limit_max' : 5.,
+                  'input_frame':"/base_footprint"}
         self.filter_y.update_configuration(params)
         
-        params = { 'filter_limit_min' : -5, 'filter_limit_max' : 5}    
+        params = {'filter_limit_min' : -5, 'filter_limit_max' : 5,
+                  'input_frame':"/base_footprint"}    
         self.filter_z.update_configuration(params)
         return "success"    
 
@@ -524,17 +569,30 @@ def create_pickup_complex_sm(inspector, location):
     with sm:
         smach.StateMachine.add("choose",
                 inspector(ChooseItem, location=location),
-                transitions = {"success":"pickup",
+                transitions = {"success":"lookat",
                     "failure":"success"}
                 )
+        
+        smach.StateMachine.add("lookat",
+                inspector(LookAtObjectPickup),
+                transitions={"success":"pickup"})
         
         smach.StateMachine.add("pickup",
                     inspector(PickUp),
                     transitions = {"success":"choose",
-                                   "no_free_arm":"success",
-                                   "failure":"failure"
+                                   "no_free_arm":"full_view",
+                                   "failure":"full_view_failure"
                                   }
                     )
+        smach.StateMachine.add("full_view",
+                    inspector(EnableFullView),
+                    transitions = {"success":"success"}
+        )
+        
+        smach.StateMachine.add("full_view_failure",
+                    inspector(EnableFullView),
+                    transitions = {"success":"failure"}
+        )
     return sm
 
 def create_detect_sm(inspector, location, pos, head_mover):
@@ -684,7 +742,7 @@ def create_detect_shelves_sm(inspector):
                                          )
             if i == len(shelves["heights"]) - 1:
                 next_s = "success"
-                next_o = "no_object"
+                next_o = "success"
             else:
                 next_s = "detect_shelf_"+str(i+1)
                 next_o = "detect_shelf_"+str(i+1)
@@ -731,14 +789,14 @@ def create_setup_table_sm(inspector):
         smach.StateMachine.add("choose",
                 inspector.instanciate(
                     ChooseItem, location=location),
-                transitions = {"success":"full_view",
+                transitions = {"success":"pickup",
                     "failure":"success"}
                 )
         
-        smach.StateMachine.add("full_view",
-                               inspector(EnableFullView),
-                               transitions={"success":"pickup"}
-        )
+#        smach.StateMachine.add("full_view",
+#                               inspector(EnableFullView),
+#                               transitions={"success":"pickup"}
+#        )
         
         pickup_sm = create_pickup_complex_sm(inspector, location)        
         smach.StateMachine.add("pickup",

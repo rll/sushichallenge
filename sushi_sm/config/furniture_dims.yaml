@@ -3,7 +3,7 @@ shelves:
   heights:
   - {max: 1.18, min: 0.72}
   - {max: 1.78, min: 1.18}
-  width: 0.50
+  width: 0.55
 
 table:
  width: 0.93
