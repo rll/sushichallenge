@@ -14,9 +14,7 @@ from spinning_table_sm import spinning_table_states
 
 import misc_msgs
 
-from pr2_tasks.tasks import Tasks
-
-def create_sm(tasks):
+def create_sm():
     sm = smach.StateMachine(outcomes=["success",
                                       "failure"])
     
@@ -28,8 +26,10 @@ def create_sm(tasks):
                                   }
                     )
                     
+                    
+        gd = spinning_table_states.GatherDetections()                    
         smach.StateMachine.add("detect",
-                    spinning_table_states.GatherDetections(),
+                    gd,
                     transitions = {"success":"fit_circle",
                                    "failure":"failure"
                                   }
@@ -49,6 +49,7 @@ def create_sm(tasks):
                                    "missed":"detect"
                                   }
                 )
+    sm.register_termination_cb(gd.kill_tracker)
     return sm
     
 if __name__ == '__main__':
@@ -56,7 +57,10 @@ if __name__ == '__main__':
     
     #tasks = Tasks()
     
-    sm = create_sm(None)
+    sm = create_sm()
     
-    outcome = sm.execute()
-    rospy.loginfo("Outcome: %s", outcome)
+    try:
+        outcome = sm.execute()
+        rospy.loginfo("Outcome: %s", outcome)
+    except Exception:
+        sm.call_termination_cbs(None,None)

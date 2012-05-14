@@ -17,7 +17,6 @@
   <depend package="roslib"/>
   <depend package="pr2_python"/>
   <depend package="pr2_tasks"/>
-  <depend package="brett2"/>
 </package>
 
 

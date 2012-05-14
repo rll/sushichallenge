@@ -6,20 +6,42 @@ import sensor_msgs.msg
 import trajectory_msgs.msg as tm
 import geometry_msgs.msg as gm
 import smach_ros
-
 from numpy import *
 from numpy.linalg import norm
-
 from collections import defaultdict
-
 from misc_msgs.msg import *
-
 from rotating_grasper.msg import *
 from rotating_grasper.srv import *
-
 from geometry_msgs.msg import Point,PointStamped,PolygonStamped
 import numpy as np
+import sys, os, yaml, subprocess
+import rospkg
 
+DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
+stream = file(DIR+"config.yaml")
+config = yaml.load(stream)
+
+def make_fuerte_env():
+    versionstr = sys.version[:3]
+    return dict(
+        ROS_MASTER_URI = os.environ["ROS_MASTER_URI"],
+        PATH = "/opt/ros/fuerte/bin:%s"%os.environ["PATH"],
+        ROS_VERSION = "fuerte",
+        PYTHONPATH = "/opt/ros/fuerte/lib/python%s/dist-packages"%versionstr,
+        ROS_PACKAGE_PATH = "/opt/ros/fuerte/share:/opt/ros/fuerte/stacks")
+
+
+def make_tracker():    
+    rp = rospkg.RosPack()
+    pkg_path = rp.get_path("spinning_tabletop_detection")    
+    p = subprocess.Popen(["%s/bin/test_tracker_ros"%pkg_path
+                           ,"input_cloud:=/camera/rgb/points"
+                           ,"--min_height=%s"%config["table_height_lower_bound"]
+                           ,"--above_table_cutoff=%s"%config["above_table_cutoff"]                                                      
+                           ], env = make_fuerte_env())
+    return p
+
+    
 
 def smaller_ang(x):
     return (x + pi)%(2*pi) - pi
@@ -164,9 +186,21 @@ def fix_angle(angle, center_point=math.pi):
 class Head(TrajectoryControllerWrapper):
     def __init__(self, listener):
         TrajectoryControllerWrapper.__init__(self,"head_traj_controller",listener)
-        
+        self.vel_limits = [1.,1.]
     def set_pan_tilt(self, pan, tilt):
         self.goto_joint_positions([pan, tilt])
+
+        
+        
+        
+        
+        
+        
+####################################
+
+
+
+
 
 class MoveArmToSide(smach.State):
     def __init__(self):
@@ -185,14 +219,25 @@ class MoveArmToSide(smach.State):
         return "success"
 
 class GatherDetections(smach.State):
+    
+    tracker = None
+    
     def __init__(self,detector=None):
         smach.State.__init__(self, outcomes=["success", "failure"],output_keys=["cylinders"])
         self.detector = detector
         self.cylinders = defaultdict(list) #list of (center, radius)
         self.num_detections = 0
+        
+
+    def kill_tracker(self, *args):
+        self.tracker.terminate()
 
     def execute(self, userdata):
         #TODO: start detector
+        
+        if self.tracker is None or self.tracker.poll() is not None:
+            self.tracker = make_tracker()
+        
         self.done = False
         print 'subscribing'
         rospy.Subscriber('/spinning_tabletop/cylinders',TrackedCylinders,self.handle_detection)
@@ -333,7 +378,7 @@ class ExecuteGrasp(smach.State):
         command.initial.y = center.y - math.sin(init_angle)*radius
         command.initial.z = center.z
 
-        command.half_height = (userdata.object_height+.02)/2
+        command.half_height = (userdata.object_height+config["above_table_cutoff"]/2)/2
 
         command.rotation_rate = rotation_rate
 
