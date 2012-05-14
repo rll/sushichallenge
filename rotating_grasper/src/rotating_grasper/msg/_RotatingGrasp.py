@@ -6,7 +6,7 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class RotatingGrasp(roslib.message.Message):
-  _md5sum = "4b29acd99c64904591686fd8850162af"
+  _md5sum = "bd9c2646c584e64fd12937f50e56b197"
   _type = "rotating_grasper/RotatingGrasp"
   _has_header = True #flag to mark the presence of a Header object
   _full_text = """Header header
@@ -14,6 +14,8 @@ geometry_msgs/Point center
 geometry_msgs/Point initial
 float64 rotation_rate
 float64 outward_angle
+float64 object_radius
+float64 object_height
 ================================================================================
 MSG: std_msgs/Header
 # Standard metadata for higher-level stamped data types.
@@ -40,8 +42,8 @@ float64 y
 float64 z
 
 """
-  __slots__ = ['header','center','initial','rotation_rate','outward_angle']
-  _slot_types = ['Header','geometry_msgs/Point','geometry_msgs/Point','float64','float64']
+  __slots__ = ['header','center','initial','rotation_rate','outward_angle','object_radius','object_height']
+  _slot_types = ['Header','geometry_msgs/Point','geometry_msgs/Point','float64','float64','float64','float64']
 
   def __init__(self, *args, **kwds):
     """
@@ -51,7 +53,7 @@ float64 z
     changes.  You cannot mix in-order arguments and keyword arguments.
     
     The available fields are:
-       header,center,initial,rotation_rate,outward_angle
+       header,center,initial,rotation_rate,outward_angle,object_radius,object_height
     
     @param args: complete set of field values, in .msg order
     @param kwds: use keyword arguments corresponding to message field names
@@ -70,12 +72,18 @@ float64 z
         self.rotation_rate = 0.
       if self.outward_angle is None:
         self.outward_angle = 0.
+      if self.object_radius is None:
+        self.object_radius = 0.
+      if self.object_height is None:
+        self.object_height = 0.
     else:
       self.header = std_msgs.msg._Header.Header()
       self.center = geometry_msgs.msg.Point()
       self.initial = geometry_msgs.msg.Point()
       self.rotation_rate = 0.
       self.outward_angle = 0.
+      self.object_radius = 0.
+      self.object_height = 0.
 
   def _get_types(self):
     """
@@ -96,7 +104,7 @@ float64 z
       length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_8d.pack(_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle))
+      buff.write(_struct_10d.pack(_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle, _x.object_radius, _x.object_height))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -126,8 +134,8 @@ float64 z
       self.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 64
-      (_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle,) = _struct_8d.unpack(str[start:end])
+      end += 80
+      (_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle, _x.object_radius, _x.object_height,) = _struct_10d.unpack(str[start:end])
       return self
     except struct.error as e:
       raise roslib.message.DeserializationError(e) #most likely buffer underfill
@@ -148,7 +156,7 @@ float64 z
       length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_8d.pack(_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle))
+      buff.write(_struct_10d.pack(_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle, _x.object_radius, _x.object_height))
     except struct.error as se: self._check_types(se)
     except TypeError as te: self._check_types(te)
 
@@ -180,12 +188,12 @@ float64 z
       self.header.frame_id = str[start:end]
       _x = self
       start = end
-      end += 64
-      (_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle,) = _struct_8d.unpack(str[start:end])
+      end += 80
+      (_x.center.x, _x.center.y, _x.center.z, _x.initial.x, _x.initial.y, _x.initial.z, _x.rotation_rate, _x.outward_angle, _x.object_radius, _x.object_height,) = _struct_10d.unpack(str[start:end])
       return self
     except struct.error as e:
       raise roslib.message.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = roslib.message.struct_I
 _struct_3I = struct.Struct("<3I")
-_struct_8d = struct.Struct("<8d")
+_struct_10d = struct.Struct("<10d")

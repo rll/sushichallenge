@@ -11,50 +11,19 @@ from numpy import *
 from collections import defaultdict
 
 from spinning_table_sm import spinning_table_states
+from spinning_table_sm.sm import create_spinning_table_sm
 
 import misc_msgs
 
-from pr2_tasks.tasks import Tasks
-
-def create_sm(tasks):
-    sm = smach.StateMachine(outcomes=["success",
-                                      "failure"])
-    with sm:
-        smach.StateMachine.add("move_arm",
-                    spinning_table_states.MoveArmToSide(tasks),
-                    transitions = {"success":"detect",
-                                   "failure":"failure"
-                                  }
-                    )
-                    
-        smach.StateMachine.add("detect",
-                    spinning_table_states.GatherDetections(),
-                    transitions = {"success":"fit_circle",
-                                   "failure":"failure"
-                                  }
-                    )
-        
-        smach.StateMachine.add("fit_circle", 
-                spinning_table_states.FitCircle(),
-                    transitions = {"success":"grasp",
-                                   "failure":"failure"
-                                  }
-                )
-        
-        smach.StateMachine.add("grasp", 
-                spinning_table_states.ExecuteGrasp(),
-                    transitions = {"success":"success",
-                                   "failure":"failure"
-                                  }
-                )
-    return sm
-    
 if __name__ == '__main__':
     rospy.init_node("spinning_table_sm", anonymous=True)
     
-    tasks = Tasks()
+    #tasks = Tasks()
     
-    sm = create_sm(tasks)
+    sm = create_spinning_table_sm()
     
-    outcome = sm.execute()
-    rospy.loginfo("Outcome: %s", outcome)
+    try:
+        outcome = sm.execute()
+        rospy.loginfo("Outcome: %s", outcome)
+    except Exception:
+        sm.call_termination_cbs(None,None)
