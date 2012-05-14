@@ -11,59 +11,16 @@ from numpy import *
 from collections import defaultdict
 
 from spinning_table_sm import spinning_table_states
+from spinning_table_sm.sm import create_spinning_table_sm
 
 import misc_msgs
 
-def create_sm():
-    sm = smach.StateMachine(outcomes=["success",
-                                      "failure"])
-    
-    with sm:
-        smach.StateMachine.add("move_arm",
-                    spinning_table_states.MoveArmToSide(),
-                    transitions = {"success":"detect",
-                                   "failure":"failure"
-                                  }
-                    )
-                    
-                    
-        gd = spinning_table_states.GatherDetections()                    
-        smach.StateMachine.add("detect",
-                    gd,
-                    transitions = {"success":"fit_circle",
-                                   "failure":"failure"
-                                  }
-                    )
-        
-        smach.StateMachine.add("fit_circle", 
-                spinning_table_states.FitCircle(),
-                    transitions = {"success":"grasp",
-                                   "failure":"failure"
-                                  }
-                )
-        
-        smach.StateMachine.add("grasp", 
-                spinning_table_states.ExecuteGrasp(),
-                    transitions = {"success":"move_arm2",
-                                   "failure":"failure",
-                                   "missed":"move_arm"
-                                  }
-                )
-        smach.StateMachine.add("move_arm2",
-                    spinning_table_states.MoveArmToSide(),
-                    transitions = {"success":"success",
-                                   "failure":"failure"
-                                  }
-                    )        
-    sm.register_termination_cb(gd.kill_tracker)
-    return sm
-    
 if __name__ == '__main__':
     rospy.init_node("spinning_table_sm", anonymous=True)
     
     #tasks = Tasks()
     
-    sm = create_sm()
+    sm = create_spinning_table_sm()
     
     try:
         outcome = sm.execute()

@@ -36,7 +36,8 @@ def make_tracker():
     pkg_path = rp.get_path("spinning_tabletop_detection")    
     p = subprocess.Popen(["%s/bin/test_tracker_ros"%pkg_path
                            ,"input_cloud:=/camera/rgb/points"
-                           ,"--min_height=%s"%config["table_height_lower_bound"]
+                           ,"--min_height=%s"%config["min_filter_height"]
+                           ,"--max_height=%s"%config["max_filter_height"]
                            ,"--above_table_cutoff=%s"%config["above_table_cutoff"]                                                      
                            ], env = make_fuerte_env(), stdout = open('/dev/null','w'))
     return p
