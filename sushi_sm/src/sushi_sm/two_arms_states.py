@@ -9,12 +9,14 @@ import smach
 import yaml
 
 from pr2_python.planning_scene_interface import get_planning_scene_interface
-from pr2_python import transform_listener
+from pr2_python import transform_listener, pointclouds
 import dynamic_reconfigure.client
 from sushi_sm.world_definitions import WorldState, PickableObject
+from sushi_sm.grab_plate import grasp_plate
 from pr2_python.find_free_space import free_spots
 from geometry_msgs.msg import Point
 from pr2_python.transform_listener import transform_point
+from spinning_table_sm.sm import create_spinning_table_sm
 
 DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
 stream = file(DIR+"poses_ucb.yaml")
@@ -96,14 +98,15 @@ class PickUp(smach.State):
         self.tasks = tasks
 
     def execute(self, userdata):
+        if len(self.world.free_arms) == 0:
+            return "no_free_arm"
         goal = self.world.pickup_next
+        
         pose = (goal.mappose.pose.position.x,
                 goal.mappose.pose.position.y,
                 goal.mappose.pose.position.z
                )
-        graspable = goal.graspable
-        if len(self.world.free_arms) == 0:
-            return "no_free_arm"
+        graspable = goal.graspable        
         
         graspable.arm_name = self.world.free_arms[0]
         goal.arm_name = graspable.arm_name
@@ -173,17 +176,48 @@ class RemoveItem(smach.State):
         return "success"
 
 class PickUpSimple(smach.State):
-    def __init__(self, world, pickplace, tasks):
+    def __init__(self, world, pickplace, tasks, find_box, base_mover):
         smach.State.__init__(self, outcomes=["success", "failure", "no_free_arm"])
         self.world = world
         self.pickplace = pickplace
         self.tasks = tasks
+        self.find_box = find_box
+        self.base = base_mover
+
+    def grasp_plate(self, goal):
+        x = goal.pose_stamped.pose.position.x
+        y = goal.pose_stamped.pose.position.y
+        z = goal.pose_stamped.pose.position.z
+        try:
+            self.base.move_manipulable_pose(x, y, z, 
+                    try_hard = True, group="torso")
+        except Exception as e:
+            rospy.logerr("Got an error: %s", e)
+            return "failure"
+        if len(self.world.free_arms) == 2:
+            lr_force = None
+        else:
+            lr_force = self.world.free_arms[0]
+        listener = transform_listener.get_transform_listener()
+        try:
+            pointcloud = goal.graspable.target.cluster
+            box = self.find_box(pointcloud)
+            return grasp_plate(box, listener, lr_force=lr_force)
+        except Exception as e:
+            rospy.logerr("Got an error: %s", e)
+            return False        
 
     def execute(self, userdata):
-        goal = self.world.pickup_next
-        graspable = goal.graspable        
         if len(self.world.free_arms) == 0:
             return "no_free_arm"
+        goal = self.world.pickup_next
+        if goal.label == "plate":
+            ret = self.grasp_plate(goal)
+            if ret:
+                return "success"
+            else:
+                return "failure"
+        graspable = goal.graspable        
 
         grabbed_it = False
         for free_arm in self.world.free_arms:        
@@ -339,6 +373,15 @@ class PlaceDown(smach.State):
             return "success"
         else:
             return "still_holding"
+
+class FakeObject(smach.State):
+    def __init__(self, world):
+        smach.State.__init__(self, outcomes=["success"])
+        self.world = world
+    
+    def execute(self, userdata):
+        self.world.object_in_hands['right_arm'] = "bogus"
+        return "success"
 
 class PlaceDownFreeSpace(smach.State):
     def __init__(self, world, placer_l, placer_r, detector, find_box):
@@ -867,4 +910,48 @@ def create_setup_table_sm(inspector):
                                
     return sm  
        
-    return sm        
+def create_spinning_table_clear_sm(inspector):
+    sm = smach.StateMachine(outcomes=["success",
+                                      "failure"])
+    location = "rotating_table"
+    pos = poses[location]    
+    with sm:
+        smach.StateMachine.add("move_to_rotating_table",
+            inspector(NavigateTo, x=pos[0], y = pos[1], theta=pos[2]),
+            transitions = {"success":"grab_stuff",
+                           "failure":"failure"}
+            )
+        
+        grab_stuff_sm = create_spinning_table_sm()
+        smach.StateMachine.add("grab_stuff",
+                               grab_stuff_sm,
+                               transitions={"success":"move_arms_side",
+                                            "failure":"failure"}
+            )
+        
+        smach.StateMachine.add("move_arms_side",
+                               inspector(MoveArmsToSide),
+                               transitions={"success":"fake_object",
+                                            "failure":"failure"}
+                               )
+        
+        smach.StateMachine.add("fake_object",
+            inspector(FakeObject),
+            transitions={"success":"move_table"}
+            )
+        
+        tablepos = poses["table_top_edge"]
+        smach.StateMachine.add("move_table",
+            inspector(NavigateTo, x=tablepos[0], y=tablepos[1], theta=tablepos[2]),
+            transitions={"success":"putdown",
+                         "failure":"failure"}
+            )
+        
+        smach.StateMachine.add("putdown",
+            inspector(PlaceDownFreeSpace),
+            transitions={"success":"success",
+                         "failure":"failure",
+                         "still_holding":"failure"}
+            )
+    return sm
+    

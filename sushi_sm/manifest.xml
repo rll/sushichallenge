@@ -16,7 +16,7 @@
   <depend package="pr2_tasks"/>
   <depend package="sensing_placer"/>
   <depend package="dynamic_reconfigure"/>
-
+  <depend package="spinning_table_sm"/>
 </package>
 
 

@@ -25,7 +25,7 @@ from sushi_sm.two_arms_states import create_detect_sm
 from sushi_sm.two_arms_states import create_clean_table_sm
 from sushi_sm.two_arms_states import create_detect_shelves_sm
 from sushi_sm.two_arms_states import create_setup_table_sm
-
+from sushi_sm.two_arms_states import create_spinning_table_clear_sm
      
 def main():
     rospy.init_node("demo_berkeley", anonymous=True)
@@ -69,14 +69,20 @@ def main():
         
         smach.StateMachine.add("move_arms_side",
                                inspector(two_arms_states.MoveArmsToSide),
-                               transitions={"success":"setup_table"})
+                               transitions={"success":"spinning_table_pickup"})
+        
+        spinning_sm = create_spinning_table_clear_sm(inspector)
+        smach.StateMachine.add("spinning_table_pickup", spinning_sm,
+                               transitions = {"success":"success",
+                                              "failure":"failure"}
+                               )
 
-        clean_table = create_clean_table_sm(inspector)
-        smach.StateMachine.add("clean_table", clean_table,
-                transitions = {"success":"success",
-                               "failure":"failure"
-                               }
-        )
+#        clean_table = create_clean_table_sm(inspector)
+#        smach.StateMachine.add("clean_table", clean_table,
+#                transitions = {"success":"success",
+#                               "failure":"failure"
+#                               }
+#        )
         
 #        setup_table = create_setup_table_sm(inspector)
 #        smach.StateMachine.add("setup_table", setup_table,

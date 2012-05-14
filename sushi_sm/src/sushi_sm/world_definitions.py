@@ -55,11 +55,13 @@ class WorldState(object):
     def add_item(self, graspable):
         """
         graspable: a PickableObject instance
-        """
-        if graspable.label == "plate":
-            rospy.loginfo("Skipping a plate... for now")
-            return
-        if graspable.label == "graspable":
+        """        
+        if graspable.label == "graspable" or graspable.label == "plate" :
+            pointcloud = graspable.graspable.target.cluster
+            box = self.find_box(pointcloud)
+            dims = box.box_dims
+            if dims.z <= 0.02:
+                graspable.label = "plate"
             res = all(f(graspable) for f in self.filters)
             if not res:
                 rospy.loginfo("Skipping filtered %s", graspable.label)
