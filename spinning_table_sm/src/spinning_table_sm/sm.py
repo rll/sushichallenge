@@ -31,7 +31,7 @@ def create_spinning_table_sm():
         smach.StateMachine.add("detect",
                     gd,
                     transitions = {"success":"fit_circle",
-                                   "failure":"failure"
+                                   "failure":"failure",
                                   }
                     )
         

@@ -256,6 +256,8 @@ class GatherDetections(smach.State):
         if maxKey == -1:
             print 'no detections!'
             return "failure"
+        if maxLength < 4:
+            return "failure"
         print 'chose id %s with length %d' % (maxKey,maxLength)
         userdata.cylinders = self.cylinders[maxKey]
         return "success"
@@ -358,6 +360,7 @@ class FitCircle(smach.State):
 class ExecuteGrasp(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=["success", "failure","missed"],input_keys=["center","radius","rotation_rate","init_angle","init_time","object_radius","object_height"])
+        self.n_consecutive_grasp_failures = 0
 
     def execute(self, userdata):
         center = userdata.center
@@ -415,9 +418,17 @@ class ExecuteGrasp(smach.State):
 
             if not grab_success:
                 print "missed!"
-                return "missed"
 
-            return "success"
+                if self.n_consecutive_grasp_failures >= 3:
+                    print "too many failures. exiting"
+                    return "failure"
+                else:
+                    print "trying again..."
+                    return "missed"
+            
+            else:
+                self.n_consecutive_grasp_failures = 0
+                return "success"
 
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
