@@ -38,7 +38,7 @@ def make_tracker():
                            ,"input_cloud:=/camera/rgb/points"
                            ,"--min_height=%s"%config["table_height_lower_bound"]
                            ,"--above_table_cutoff=%s"%config["above_table_cutoff"]                                                      
-                           ], env = make_fuerte_env())
+                           ], env = make_fuerte_env(), stdout = open('/dev/null','w'))
     return p
 
     
@@ -215,7 +215,7 @@ class MoveArmToSide(smach.State):
         rospy.sleep(1)
         self.larm.goto_posture('up')
         self.rarm.goto_posture('up')
-        self.head.set_pan_tilt(0,1)
+        self.head.set_pan_tilt(0,.7)
         return "success"
 
 class GatherDetections(smach.State):
@@ -378,7 +378,8 @@ class ExecuteGrasp(smach.State):
         command.initial.y = center.y - math.sin(init_angle)*radius
         command.initial.z = center.z
 
-        command.half_height = (userdata.object_height+config["above_table_cutoff"]/2)/2
+        command.object_height = userdata.object_height+config["above_table_cutoff"]
+        command.object_radius = userdata.object_radius
 
         command.rotation_rate = rotation_rate
 
@@ -391,7 +392,7 @@ class ExecuteGrasp(smach.State):
             command.outward_angle = math.pi/4
         else:
             print "PLATE"
-            command.outward_angle = 3*math.pi/4
+            command.outward_angle = math.pi/2 - math.pi/8
         print 'waiting for service'
         rospy.wait_for_service('rotating_grasper')
         server = rospy.ServiceProxy('rotating_grasper', RotatingGrasper)

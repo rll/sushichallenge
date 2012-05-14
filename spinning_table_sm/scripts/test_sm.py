@@ -44,11 +44,17 @@ def create_sm():
         
         smach.StateMachine.add("grasp", 
                 spinning_table_states.ExecuteGrasp(),
-                    transitions = {"success":"success",
+                    transitions = {"success":"move_arm2",
                                    "failure":"failure",
-                                   "missed":"detect"
+                                   "missed":"move_arm"
                                   }
                 )
+        smach.StateMachine.add("move_arm2",
+                    spinning_table_states.MoveArmToSide(),
+                    transitions = {"success":"success",
+                                   "failure":"failure"
+                                  }
+                    )        
     sm.register_termination_cb(gd.kill_tracker)
     return sm
     
