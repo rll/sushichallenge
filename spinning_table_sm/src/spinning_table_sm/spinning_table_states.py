@@ -423,7 +423,8 @@ class ExecuteGrasp(smach.State):
                     print "too many failures. exiting"
                     return "failure"
                 else:
-                    print "trying again..."
+                    print "failed %i times. trying again..."%self.n_consecutive_grasp_failures
+                    self.n_consecutive_grasp_failures += 1
                     return "missed"
             
             else:

@@ -170,7 +170,7 @@ class RotatingGraspServer():
                 target.header.frame_id = command.header.frame_id
                 target.pose.position.x = command.center.x + math.cos(command_angle) * (radius + offset_horizontal) - pointing_axis[0]*.08
                 target.pose.position.y = command.center.y - math.sin(command_angle) * (radius + offset_horizontal) - pointing_axis[1]*.08
-                target.pose.position.z = command.center.z + offset_vertical - pointing_axis[2]*.08 + half_height
+                target.pose.position.z = command.center.z + offset_vertical - pointing_axis[2]*.08 + half_height + .01
                 
                 
                 #q = (0,0,0,1)
