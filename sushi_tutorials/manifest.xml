@@ -1,0 +1,17 @@
+<package>
+  <description brief="sushi_tutorials">
+
+     sushi_tutorials
+
+  </description>
+  <author>Lorenzo</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/sushi_tutorials</url>
+  <depend package="pr2_python"/>
+  <depend package="pr2_tasks"/>
+  <depend package="object_manipulation_msgs"/>
+
+</package>
+
+
