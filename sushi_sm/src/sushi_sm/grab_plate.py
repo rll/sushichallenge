@@ -16,20 +16,19 @@ import pr2_python.arm_planner as pr2_ap
 import pr2_python.trajectory_tools as tt
 import sensor_msgs
 
-global larm_mover
-global rarm_mover
-global lgripper
-global rgripper
-global rarm_planner
-global larm_glanner
-global tf_listener
+from brett2.pr2 import PR2
+
+brett = None
 
 outward_angle = pi/4.
 offset_init = 0.05
 offset_final = 0.
 offset_vertial = 0.
 
+
 def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm_mover=None, lgripper=None, rgripper=None, lr_force =None):
+
+
     if tf_listener == None:
         tf_listener = tf.TransformListener()
         rospy.loginfo('created tf lisener...waiting 1 second')
@@ -44,6 +43,11 @@ def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm
         lgripper = gripper.Gripper('left_arm')
     if rgripper == None:
         rgripper = gripper.Gripper('right_arm')
+    
+    global brett
+    if brett == None:
+        brett = PR2()
+
 
     bottom_center = cylinder[0]
     x = cylinder[0].point.x
@@ -59,11 +63,15 @@ def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm
         arm_mover = larm_mover
         gripper = lgripper
         angles = np.linspace(math.pi/2,math.pi,math.pi/20)
+        arm = brett.larm
+        gripper_tool_frame = "l_gripper_tool_frame"
     else:
         side = 'right'
         arm_mover = rarm_mover
         gripper = rgripper
         angles = np.linspace(math.pi,3.*math.pi/2.,math.pi/20)
+        arm = brett.rarm
+        gripper_tool_frame = "r_gripper_tool_frame"
     
     for angle in angles:
         q1 = quaternion_about_axis(math.pi/2,(0,1,0))
@@ -83,7 +91,10 @@ def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm
         target.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
         
         #TODO: check ik
-        ik_worked = True
+        import conversions
+        mat4 = conversions.trans_rot_to_hmat([target.pose.position.x, target.pose.position.y, target.pose.position.z],q)
+        joint_positions = arm.ik(mat4, target.header.frame_id, gripper_tool_frame)
+        ik_worked = (joint_positions is not None)
         
         if not ik_worked:
             continue
