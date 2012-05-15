@@ -243,10 +243,12 @@ class PickUpSimple(smach.State):
             key = self.cylinders.keys()[0]
             
             cylinder = self.cylinders[key][0]
+            
+            return grasp_plate_from_cylinder(cylinder,listener,lr_force=lr_force)
 
-            pointcloud = goal.graspable.target.cluster
-            box = self.find_box(pointcloud)
-            return grasp_plate(box, listener, lr_force=lr_force)
+            # pointcloud = goal.graspable.target.cluster
+            # box = self.find_box(pointcloud)
+            # return grasp_plate(box, listener, lr_force=lr_force)
         except Exception as e:
             rospy.logerr("Got an error: %s", e)
             return False        

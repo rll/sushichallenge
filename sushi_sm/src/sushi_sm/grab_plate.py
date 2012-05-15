@@ -23,7 +23,7 @@ brett = None
 outward_angle = pi/4.
 offset_init = 0.05
 offset_final = 0.
-offset_vertial = 0.
+offset_vertical = 0.
 
 
 def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm_mover=None, lgripper=None, rgripper=None, lr_force =None):
@@ -99,7 +99,7 @@ def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm
         if not ik_worked:
             continue
         
-        for offset in np.linspace(offset_init,offset_final,0.05):
+        for offset in np.linspace(offset_init,offset_final,0.01):
             target = geometry_msgs.msg.PoseStamped()
             target.header.stamp = rospy.Time.now()
             target.header.frame_id = cylinder.header.frame_id
@@ -109,9 +109,14 @@ def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm
             
             target.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
             
-            arm_mover.move_to_goal_directly(target,5.0,None,False,4)
-        
-
+            try:
+                arm_mover.move_to_goal_directly(target,5.0,None,False,4,collision_aware=False)
+            except e:
+                break
+            
+            return grab_success(side[0])
+    return False
+    
 def grasp_plate(bounding_box, tf_listener=None , larm_mover=None, rarm_mover=None, lgripper=None, rgripper=None, lr_force =None):
     #grasps a single plate from a point cloud bounding box
     #lr_force to only consider using 'l' or 'r' arm for grasping
