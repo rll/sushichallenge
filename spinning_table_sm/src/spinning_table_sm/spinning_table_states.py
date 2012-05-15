@@ -21,6 +21,9 @@ DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
 stream = file(DIR+"config.yaml")
 config = yaml.load(stream)
 
+spinning_table_radius = 0.5 #TODO: measure
+plate_hang_buffer = 0.03
+
 def make_fuerte_env():
     versionstr = sys.version[:3]
     return dict(
@@ -365,6 +368,7 @@ class ExecuteGrasp(smach.State):
     def execute(self, userdata):
         center = userdata.center
         radius = userdata.radius
+        object_radius = userdata.object_radius
         rotation_rate = userdata.rotation_rate
         init_angle = userdata.init_angle
         init_time = userdata.init_time
@@ -390,16 +394,26 @@ class ExecuteGrasp(smach.State):
         print "radius,height",userdata.object_radius, userdata.object_height
         if userdata.object_radius < .06:
             print "CUP!"
+            object_type = "cup"
             command.outward_angle = 0
         elif userdata.object_radius < .12:
             print "BOWL"
+            object_type = "bowl"
             command.outward_angle = math.pi/4
         else:
             print "PLATE"
+            object_type = "plate"
             command.outward_angle = math.pi/2 - math.pi/8
         print 'waiting for service'
         rospy.wait_for_service('rotating_grasper')
         server = rospy.ServiceProxy('rotating_grasper', RotatingGrasper)
+        
+        if object_type == "plate" and radius < spinning_table_radius + plate_hang_buffer:
+            print "plate must be pushed out"
+            dist_to_push = spinning_table_radius + plate_hang_buffer - radius
+            #TODO: 
+            pass
+        
         try:
             print 'calling...'
             print command

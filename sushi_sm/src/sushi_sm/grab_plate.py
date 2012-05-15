@@ -24,6 +24,82 @@ global rarm_planner
 global larm_glanner
 global tf_listener
 
+outward_angle = pi/4.
+offset_init = 0.05
+offset_final = 0.
+offset_vertial = 0.
+
+def grasp_plate_from_cylinder(cylinder, tf_listener=None , larm_mover=None, rarm_mover=None, lgripper=None, rgripper=None, lr_force =None):
+    if tf_listener == None:
+        tf_listener = tf.TransformListener()
+        rospy.loginfo('created tf lisener...waiting 1 second')
+        rospy.sleep(1)
+        rospy.loginfo('done waiting')
+
+    if larm_mover == None:
+        larm_mover = pr2_am.ArmMover('left_arm')
+    if rarm_mover == None:
+        rarm_mover = pr2_am.ArmMover('right_arm')
+    if lgripper == None:
+        lgripper = gripper.Gripper('left_arm')
+    if rgripper == None:
+        rgripper = gripper.Gripper('right_arm')
+
+    bottom_center = cylinder[0]
+    x = cylinder[0].point.x
+    y = cylinder[0].point.y
+    z = cylinder[0].point.z
+    r = cylinder[1]
+    h = cylinder[2]
+    
+    tll_point = tf_listener.transformPose('torso_lift_link', bottom_center)
+    
+    if tll_point.point.y > 0:
+        side = 'left'
+        arm_mover = larm_mover
+        gripper = lgripper
+        angles = np.linspace(math.pi/2,math.pi,math.pi/20)
+    else:
+        side = 'right'
+        arm_mover = rarm_mover
+        gripper = rgripper
+        angles = np.linspace(math.pi,3.*math.pi/2.,math.pi/20)
+    
+    for angle in angles:
+        q1 = quaternion_about_axis(math.pi/2,(0,1,0))
+        q2 = quaternion_about_axis(math.pi/2+angle,(1,0,0))
+        q3 = quaternion_about_axis(-outward_angle,(0,0,1))
+        q12 = quaternion_multiply(q1,q2)
+        q = quaternion_multiply(q12,q3)
+        pointing_axis = quaternion_matrix(q)[:3,0]
+        
+        target = geometry_msgs.msg.PoseStamped()
+        target.header.stamp = rospy.Time.now()
+        target.header.frame_id = cylinder.header.frame_id
+        target.pose.position.x = x + math.cos(angle) * (r + offset_final) # - pointing_axis[0]*.08
+        target.pose.position.y = y - math.sin(angle) * (r + offset_final) # - pointing_axis[1]*.08
+        target.pose.position.z = z + offset_vertical # - pointing_axis[2]*.08 + half_height + .01
+        
+        target.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
+        
+        #TODO: check ik
+        ik_worked = True
+        
+        if not ik_worked:
+            continue
+        
+        for offset in np.linspace(offset_init,offset_final,0.05):
+            target = geometry_msgs.msg.PoseStamped()
+            target.header.stamp = rospy.Time.now()
+            target.header.frame_id = cylinder.header.frame_id
+            target.pose.position.x = x + math.cos(angle) * (r + offset) # - pointing_axis[0]*.08
+            target.pose.position.y = y - math.sin(angle) * (r + offset) # - pointing_axis[1]*.08
+            target.pose.position.z = z + offset_vertical # - pointing_axis[2]*.08 + half_height + .01
+            
+            target.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
+            
+            arm_mover.move_to_goal_directly(target,5.0,None,False,4)
+        
 
 def grasp_plate(bounding_box, tf_listener=None , larm_mover=None, rarm_mover=None, lgripper=None, rgripper=None, lr_force =None):
     #grasps a single plate from a point cloud bounding box
