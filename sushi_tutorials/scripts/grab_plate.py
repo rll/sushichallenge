@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import roslib
-roslib.load_manifest("stack_plates")
+roslib.load_manifest("sushi_tutorials")
 import rospy
 import sys
 from geometry_msgs.msg import PointStamped, PoseStamped, QuaternionStamped, Quaternion, Vector3

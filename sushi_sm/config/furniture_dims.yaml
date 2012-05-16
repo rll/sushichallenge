@@ -1,10 +1,10 @@
 shelves:
-  depth: 0.38
+  depth: 0.34
   heights:
-  - {max: 1.18, min: 0.72}
-  - {max: 1.78, min: 1.18}
-  width: 0.55
+  - {max: 0.83, min: 0.45}
+  - {max: 1.30, min: 0.83}
+  width: 0.780
 
 table:
- width: 0.93
- height: 0.77
+ width: 1.22
+ height: 0.75
