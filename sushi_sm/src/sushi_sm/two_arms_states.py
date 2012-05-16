@@ -23,7 +23,7 @@ from spinning_table_sm.sm import create_spinning_table_sm
 import sys, subprocess
 
 DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
-stream = file(DIR+"poses_ucb.yaml")
+stream = file(DIR+"poses_icra.yaml")
 poses = yaml.load(stream)
 
 stream = file(DIR+"furniture_dims.yaml")

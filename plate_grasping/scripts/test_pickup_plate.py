@@ -89,7 +89,7 @@ class PlateGrasper:
             self.done = False
             print 'subscribing'
             rospy.Subscriber('/spinning_tabletop/cylinders',TrackedCylinders,self.handle_detection)
-            sleep_time = 1
+            sleep_time = 10
             
             print 'waiting for %d seconds' % sleep_time
             rospy.sleep(sleep_time)
@@ -127,7 +127,6 @@ class PlateGrasper:
             self.num_detections += 1
             self.done = True
 
-from brett2.pr2 import PR2
 
 brett = None
 
@@ -234,10 +233,13 @@ def grab_success(lr):
     return (gripper_joint_angle > .0025) 
 
 
-
+rospy.init_node("test_pickup_plate")
 base_mover = base.Base()
+
+import traceback
 try:
     grasper = PlateGrasper(base_mover)
     grasper.grasp_plate()
 finally:
+    traceback.print_exc()
     grasper.tracker.terminate()
