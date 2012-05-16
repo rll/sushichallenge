@@ -18,6 +18,8 @@ from geometry_msgs.msg import Point
 from pr2_python.transform_listener import transform_point
 from spinning_table_sm.sm import create_spinning_table_sm
 
+
+
 import sys, subprocess
 
 DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
@@ -26,6 +28,10 @@ poses = yaml.load(stream)
 
 stream = file(DIR+"furniture_dims.yaml")
 furniture_dims = yaml.load(stream)
+
+DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
+stream = file(DIR+"config.yaml")
+config = yaml.load(stream)
 
 def make_fuerte_env():
     versionstr = sys.version[:3]
@@ -199,7 +205,7 @@ class RemoveItem(smach.State):
         return "success"
 
 class PickUpSimple(smach.State):
-    def __init__(self, world, pickplace, tasks, find_box, base_mover):
+    def __init__(self, world=None, pickplace=None, tasks=None, find_box=None, base_mover=None):
         smach.State.__init__(self, outcomes=["success", "failure", "no_free_arm"])
         self.world = world
         self.pickplace = pickplace
@@ -239,10 +245,19 @@ class PickUpSimple(smach.State):
             print 'waiting for %d seconds' % sleep_time
             rospy.sleep(sleep_time)
             self.done = True
+            self.tracker.terminate()
             
-            key = self.cylinders.keys()[0]
+            #key = self.cylinders.keys()[0]
+            min_dist = 1000000
+            min_key = None
+            for key in self.cylinders.keys():
+                pt = self.cylinders[key][0].point
+                dist = math.sqrt((pt.x-x)**2 + (pt.y-y)**2)
+                if dist < min_dist:
+                    min_dist = dist
+                    min_key = key
             
-            cylinder = self.cylinders[key][0]
+            cylinder = self.cylinders[min_key][0]
             
             return grasp_plate_from_cylinder(cylinder,listener,lr_force=lr_force)
 

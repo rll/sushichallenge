@@ -1,4 +1,3 @@
-pose: [-0.684, -0.633 -2.277]
-min_filter_height: .6
-max_filter_height: .8
+min_filter_height: .5
+max_filter_height: .7
 above_table_cutoff: .025
