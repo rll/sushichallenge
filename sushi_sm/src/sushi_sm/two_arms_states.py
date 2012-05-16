@@ -18,12 +18,35 @@ from geometry_msgs.msg import Point
 from pr2_python.transform_listener import transform_point
 from spinning_table_sm.sm import create_spinning_table_sm
 
+import sys, subprocess
+
 DIR = roslib.packages.get_pkg_dir(PKG, required=True) + "/config/"
 stream = file(DIR+"poses_ucb.yaml")
 poses = yaml.load(stream)
 
 stream = file(DIR+"furniture_dims.yaml")
 furniture_dims = yaml.load(stream)
+
+def make_fuerte_env():
+    versionstr = sys.version[:3]
+    return dict(
+        ROS_MASTER_URI = os.environ["ROS_MASTER_URI"],
+        PATH = "/opt/ros/fuerte/bin:%s"%os.environ["PATH"],
+        ROS_VERSION = "fuerte",
+        PYTHONPATH = "/opt/ros/fuerte/lib/python%s/dist-packages"%versionstr,
+        ROS_PACKAGE_PATH = "/opt/ros/fuerte/share:/opt/ros/fuerte/stacks")
+
+
+def make_tracker():    
+    rp = rospkg.RosPack()
+    pkg_path = rp.get_path("spinning_tabletop_detection")    
+    p = subprocess.Popen(["%s/bin/test_tracker_ros"%pkg_path
+                           ,"input_cloud:=/camera/rgb/points"
+                           ,"--min_height=%s"%config["min_filter_height"]
+                           ,"--max_height=%s"%config["max_filter_height"]
+                           ,"--above_table_cutoff=%s"%config["above_table_cutoff"]                                                      
+                           ], env = make_fuerte_env(), stdout = open('/dev/null','w'))
+    return p
 
 
 class NavigateTo(smach.State):
@@ -183,6 +206,12 @@ class PickUpSimple(smach.State):
         self.tasks = tasks
         self.find_box = find_box
         self.base = base_mover
+        
+        self.cylinders = defaultdict(list) #list of (center, radius)
+        self.num_detections = 0
+
+    def kill_tracker(self, *args):
+        self.tracker.terminate()
 
     def grasp_plate(self, goal):
         x = goal.pose_stamped.pose.position.x
@@ -200,13 +229,42 @@ class PickUpSimple(smach.State):
             lr_force = self.world.free_arms[0]
         listener = transform_listener.get_transform_listener()
         try:
-            pointcloud = goal.graspable.target.cluster
-            box = self.find_box(pointcloud)
-            return grasp_plate(box, listener, lr_force=lr_force)
+            if self.tracker is None or self.tracker.poll() is not None:
+                self.tracker = make_tracker()
+        
+            self.done = False
+            print 'subscribing'
+            rospy.Subscriber('/spinning_tabletop/cylinders',TrackedCylinders,self.handle_detection)
+            sleep_time = 11
+            print 'waiting for %d seconds' % sleep_time
+            rospy.sleep(sleep_time)
+            self.done = True
+            
+            key = self.cylinders.keys()[0]
+            
+            cylinder = self.cylinders[key][0]
+            
+            return grasp_plate_from_cylinder(cylinder,listener,lr_force=lr_force)
+
+            # pointcloud = goal.graspable.target.cluster
+            # box = self.find_box(pointcloud)
+            # return grasp_plate(box, listener, lr_force=lr_force)
         except Exception as e:
             rospy.logerr("Got an error: %s", e)
             return False        
 
+    def handle_detection(self,detection):
+        if self.done: return
+        for i in range(len(detection.ids)):
+            pt = PointStamped()
+            pt.header = detection.header
+            pt.point.x = detection.xs[i]
+            pt.point.y = detection.ys[i]
+            pt.point.z = detection.zs[i] - detection.hs[i]
+            self.cylinders[detection.ids[i]].append((pt,detection.rs[i], detection.hs[i]))
+        self.num_detections += 1
+        self.done = True
+        
     def execute(self, userdata):
         if len(self.world.free_arms) == 0:
             return "no_free_arm"
