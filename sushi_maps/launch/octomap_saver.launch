@@ -1,0 +1,5 @@
+<launch>
+  <arg name="map_name" default="$(optenv MAP_NAME sdh7)"/>
+  
+  <node name="octomap_saver" pkg="mapmaking_octomap" type="octomap_saver" args="$(find sushi_maps)/$(arg map_name).bt"/>
+</launch>

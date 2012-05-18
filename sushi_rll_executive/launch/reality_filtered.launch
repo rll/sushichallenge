@@ -1,0 +1,27 @@
+<launch>
+  <arg name="model_set" default="SUSHI_MODEL_SET"/>
+  <arg name="stereo" default="false"/>  
+  <arg name="kinect_frame_prefix" default="/openni"/>
+
+  <arg name="map_name" default="$(optenv MAP_NAME sdh7)"/>
+  <arg name="map_bt_name" default="$(arg map_name)"/>
+
+  <include file="$(find sushi_executive)/launch/common_filtered.launch">
+     <arg name="model_set" value="$(arg model_set)" />
+     <arg name="kinect_frame_prefix" value="$(arg kinect_frame_prefix)"/>
+     <arg name="stereo" value="$(arg stereo)"/>
+
+     <arg name="map_name" default="$(arg map_name)"/>
+     <arg name="map_bt_name" default="$(arg map_bt_name)"/>
+  </include>
+
+  <include file="$(find sushi_executive)/launch/kinect_filtered.launch"/>
+
+  <!--
+  <include file="$(find sushi_executive)/launch/interactive_manip_filtered.launch">
+     <arg name="model_set" value="$(arg model_set)" />
+     <arg name="kinect_frame_prefix" value="$(arg kinect_frame_prefix)"/>
+     <arg name="stereo" value="$(arg stereo)"/>
+  </include>
+  -->
+</launch>

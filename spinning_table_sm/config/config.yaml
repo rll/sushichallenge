@@ -1,0 +1,3 @@
+min_filter_height: .5
+max_filter_height: .7
+above_table_cutoff: .025

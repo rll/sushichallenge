@@ -34,7 +34,7 @@ void TabletopTrackerROS::callback(const sensor_msgs::PointCloud2& msg) {
 
 void TabletopTrackerROS::updateTransform() {
   tf::StampedTransform stamped_transform;
-  listener.lookupTransform("base_footprint", "/openni_rgb_optical_frame", ros::Time(0), stamped_transform);
+  listener.lookupTransform("/base_footprint", "/head_mount_kinect_rgb_optical_frame", ros::Time(0), stamped_transform);
   transform = toEigenTransform(stamped_transform.asBt());
 }
 
@@ -74,6 +74,9 @@ void TabletopTrackerROS::publish() {
   // table.x_max = xmax;
   // table.y_min = ymin;
   // table.y_max = ymax;
+    sensor_msgs::PointCloud2 pc;
+    pcl::toROSMsg(*table_hull, pc);
+    cloud_pub.publish(pc);
 
   for (int i=0; i < clusters.size(); i++) {
     sensor_msgs::PointCloud2 pc;

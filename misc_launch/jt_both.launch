@@ -1,0 +1,4 @@
+<launch>
+  <include file="$(find misc_launch)/jt_left.launch"/>
+  <include file="$(find misc_launch)/jt_right.launch"/>
+</launch>

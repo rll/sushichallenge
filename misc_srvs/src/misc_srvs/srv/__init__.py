@@ -1,1 +1,1 @@
-from _SetSwitch import *
+from ._SetSwitch import *
