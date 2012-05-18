@@ -20,7 +20,6 @@
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_ros/point_cloud.h>
-
 #include <pcl_ros/transforms.h>
 
 
@@ -56,17 +55,58 @@ namespace enc = sensor_msgs::image_encodings;
 
 class FindCluster
 {
-	ros::NodeHandle nh_;
+
+        //********** Nodehandles *************
+        ros::NodeHandle nh_;
 	ros::NodeHandle pt_;
 	ros::NodeHandle cp;
-
 	ros::NodeHandle private_node_handle_D;
 	ros::NodeHandle private_node_handle_X;
-
 	ros::NodeHandle nh_service_table;
+        ros::NodeHandle n;
+        ros::NodeHandle n_box;
+
+        //********** Subscriber/Receiver *************
+        image_transport::ImageTransport it_;
+        image_transport::Subscriber image_sub_;
+        cv_bridge::CvImagePtr cv_ptr;
+
+        ros::Subscriber cloud_sub;
+        ros::Publisher cloud_pub;
+        ros::Subscriber capture_sub;
+
+        image_transport::Publisher image_pub_;
+        ros::Publisher cloud_percept;
+        ros::Publisher box_data;
+
+        ros::ServiceServer service;
 
 
+        //********** PointClouds *************
+        sensor_msgs::PointCloud2 cloud_voxelized;
+        sensor_msgs::PointCloud2Ptr cloud_transformed_ptr;
 
+        pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
+        pcl::PointCloud<pcl::PointXYZ> cloud_toRosMsgNoColor;
+        pcl::PointCloud<pcl::PointXYZRGB> table_cloud;
+
+        sensor_msgs::PointCloud pc1;
+        std::vector<pcl::PointXYZRGB> abovePlanePixelSet;
+        std::vector<pcl::PointXYZRGB> onPlanePixelSet;
+
+        std::vector<ColoredPointClusterxp> abovePlaneClusterSet;
+        std::vector<ColoredPointClusterxp> onPlaneClusterSet;
+        std::vector<ColoredPointClusterxp> lastabovePlaneClusterSet;
+        std::vector<ColoredPointClusterxp> lastonPlaneClusterSet;
+
+        pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
+
+
+        //********** Variables *****************
+        dynamic_reconfigure::Server<sushi_kinect::ParametersConfig> server;
+        dynamic_reconfigure::Server<sushi_kinect::ParametersConfig>::CallbackType f;
+
+        geometry_msgs::Point32 point32;
 
 	double paramD;
 	double paramX;
@@ -74,53 +114,9 @@ class FindCluster
 	double coeffManual[4];
 	double vA, vB, vC, vD;
 
-	ros::Subscriber cloud_sub;
-	ros::Publisher cloud_pub;
-
-	ros::Subscriber capture_sub;
-
-	image_transport::ImageTransport it_;
-	image_transport::Subscriber image_sub_;
-	image_transport::Publisher image_pub_;
-
-	ros::NodeHandle n;
-//	ros::NodeHandle n2;
-
-	ros::NodeHandle n_box;
-
-        ros::Publisher cloud_percept;
-//	ros::Publisher cloud_vector;
-
-	ros::Publisher box_data;
-
-	ros::ServiceServer service;
-
-
-	sensor_msgs::PointCloud2 cloud_voxelized;
-
-	pcl::PointCloud<pcl::PointXYZRGB> cloud_toRosMsg;
-        pcl::PointCloud<pcl::PointXYZ> cloud_toRosMsgNoColor;
-
-	sensor_msgs::PointCloud pc1;
-	geometry_msgs::Point32 point32;
-
-	pcl::VoxelGrid<sensor_msgs::PointCloud2> sor;
-
-	std::vector<pcl::PointXYZRGB> abovePlanePixelSet;
-	std::vector<pcl::PointXYZRGB> onPlanePixelSet;
-
-	std::vector<ColoredPointClusterxp> abovePlaneClusterSet;
-	std::vector<ColoredPointClusterxp> onPlaneClusterSet;
-
 	tf::TransformListener listener;
 	std::string sourceFrameName;
-
-	//ros::NodeHandle pa;
-	//ros::Publisher pose_array;
-
-
 	tf::Quaternion q_table;
-	cv_bridge::CvImagePtr cv_ptr;
 
 	static const double OpeningAngleHorizontal = 34.0 / 180.0 * 3.14159266;
 	static const double OpeningAngleVertical = 27.0 / 180.0 * 3.14159266;
@@ -134,10 +130,6 @@ class FindCluster
 	static const double minDistanceUnderPlane = -0.0125;
 	static const double doRANSAC = true;
 
-          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig> server;
-          dynamic_reconfigure::Server<sushi_kinect::ParametersConfig>::CallbackType f;
-
-
         //receiver of new value
         double distAboveTable;
         double colAboveTable;
@@ -145,31 +137,17 @@ class FindCluster
         double colOnTable;
         double distMergedTable;
         double colMergedTable;
-
         double voxelLengthNewValue;
 
         bool recObjectsAboveTable;
         bool recObjectsOnTable;
         bool mrgTableObjects;
-
-
-
-	//Store point cloud data
-	sensor_msgs::PointCloud2Ptr cloud_transformed_ptr;
-
-
+        bool trackingIdFlags[64];
+        bool captureNow;
+        bool transformationWorked;
 
 	int cycleCountPcl;
 	int cycleCountImg;
-
-	bool trackingIdFlags[64];
-	std::vector<ColoredPointClusterxp> lastabovePlaneClusterSet;
-
-	std::vector<ColoredPointClusterxp> lastonPlaneClusterSet;
-
-	bool captureNow;
-	bool transformationWorked;
-	//bool doRANSAC;
 
 public:
 
@@ -662,6 +640,45 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 	}
 
 
+        /********************************************************************/
+        void calcTableBoundaries(pcl::PointCloud<pcl::PointXYZRGB>& table_cloud, double& minX, double& minY, double& maxX, double& maxY) {
+            int count = 0;
+            for (size_t i = 0; i < table_cloud.size(); i++) {
+                if (count == 0) {
+                        minX = maxX = table_cloud.at(i).x;
+                        minY = maxY = table_cloud.at(i).y;
+                }
+                if (table_cloud.at(i).x < minX) {minX = (float)table_cloud.at(i).x;}
+                if (table_cloud.at(i).x > maxX) {maxX = (float)table_cloud.at(i).x;}
+                if (table_cloud.at(i).y < minY) {minY = (float)table_cloud.at(i).y;}
+                if (table_cloud.at(i).y > maxY) {maxY = (float)table_cloud.at(i).y;}
+                count++;
+            }
+        }
+
+        /*********************************************************************************/
+        void erasePointCloudNotOverTable(pcl::PointCloud<pcl::PointXYZRGB>& cloud_toRosMsg, double vA, double vB, double vC, double vD, double tolerance) {
+            calculateTablePointSet(cloud_toRosMsg, table_cloud, vA, vB, vC, vD);
+            ROS_INFO(" second Size %d", cloud_toRosMsg.size());
+            double minX = 0.0; double minY = 0.0; double maxX = 0.0; double maxY = 0.0;
+            calcTableBoundaries(table_cloud, minX, minY, maxX, maxY);
+           // ROS_INFO("minX %f maxX %f minY %f maxY %f", minX, maxX, minY, maxY);
+
+            for (size_t i = 0; i < cloud_toRosMsg.size();) {
+                if (((cloud_toRosMsg.at(i).x - tolerance)< minX) || ((cloud_toRosMsg.at(i).x + tolerance) > maxX) || ((cloud_toRosMsg.at(i).y - tolerance) < minY) || ((cloud_toRosMsg.at(i).y + tolerance) > maxY)) {
+                    cloud_toRosMsg.erase(cloud_toRosMsg.begin()+i);
+                } else {
+                   // ROS_INFO("x %f, y %f, minX %f, maxX %f, minY %f, maxY %f, tolerance %f ", table_cloud.at(i).x, table_cloud.at(i).y, minX, maxX, minY, maxY, tolerance);
+                    i++;
+                }
+
+            }
+            ROS_INFO(" third Size %d", cloud_toRosMsg.size());
+
+        }
+
+
+
 	/********************************************************************/
         void calcTableParameters(double a, double b, double c, double d, double prox, double& cx, double& cy, double& cz, double& qx, double& qy, double& qz, double& qw, float& minX, float& maxX, float& minY, float& maxY) {
 		
@@ -706,6 +723,20 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 	}
 
 
+
+        /*******************************************************************/
+        void calculateTablePointSet(pcl::PointCloud<pcl::PointXYZRGB>& pCloud, pcl::PointCloud<pcl::PointXYZRGB>& table_cloud, double vA, double vB, double vC, double vD) {
+            table_cloud.clear();
+            ROS_INFO("Size **pC %d ", pCloud.size());
+
+            for (size_t i = 0; i < pCloud.size(); i++) {
+                if (fabs(signedPointPlaneDistance(pCloud.at(i).x, pCloud.at(i).y, pCloud.at(i).z, vA, vB, vC, vD)) <= 0.01) {
+                    table_cloud.push_back(pCloud.at(i));
+                }
+            }
+            ROS_INFO("Size **tC %d ", table_cloud.size());
+            }
+
         /********************************************************************/
         void findTableColorGridCluster(pcl::PointCloud<pcl::PointXYZRGB>& pCloud) {
 
@@ -737,7 +768,7 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
                    //     if (grid2[i][j][k] > count2_max) {count2_max = grid2[i][j][k]; i2_max = i; j2_max = j; k2_max = k;}
                     }}}
 
-            ROS_INFO(" %d %d %d %d", i1_max, j1_max, k1_max, count1_max);
+      //      ROS_INFO(" %d %d %d %d", i1_max, j1_max, k1_max, count1_max);
             //ROS_INFO(" %d %d %d %d", i2_max, j2_max, k2_max, count2_max);
 
 
@@ -916,6 +947,9 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 		coeffManual[1] = vB;
 		coeffManual[2] = vC;
 		coeffManual[3] = vD;
+
+
+                //erasePointCloudNotOverTable(cloud_toRosMsg, vA, vB, vC, vD, 0.025); //remove everthing in 25 mm prox.
 
 
 		pcl::PointXYZRGB rgbdPixel;
