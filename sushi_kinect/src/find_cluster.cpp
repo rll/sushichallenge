@@ -38,7 +38,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "ColoredPointClusterxp.h"
-#include "tabletop_object_detector/TabletopSegmentation.h"
+//#include "tabletop_object_detector/TabletopSegmentation.h"
 
 
 #include <tf/transform_listener.h>
@@ -172,7 +172,7 @@ public:
                 //cloud_vector = n2.advertise<geometry_msgs::Vector3>("/bolt/vision/cloud_vector", 10);
 		box_data = n_box.advertise<std_msgs::Float64MultiArray>("bolt/vision/bounding_box_data", 10);
 
-		service = nh_service_table.advertiseService("find_table", &FindCluster::findTable, this);
+	//	service = nh_service_table.advertiseService("find_table", &FindCluster::findTable, this);
 
 		cycleCountPcl = 0;
 		cycleCountImg = 0;
@@ -198,7 +198,7 @@ public:
 	}
 
 
-	bool findTable(tabletop_object_detector::TabletopSegmentation::Request  &req,
+/*	bool findTable(tabletop_object_detector::TabletopSegmentation::Request  &req,
 		 tabletop_object_detector::TabletopSegmentation::Response &res )
 	{
 	  //res.detection.table.pose.header.seq;
@@ -214,13 +214,9 @@ public:
 
 
 
-//	  res.detection.clusters[0].header.seq;
-//	  res.detection.clusters[0].header.stamp;
-	  //res.detection.clusters[0].header.frame_id  = std::string("/base_link");
 
 	  pc1.points.clear();
 
-//////////////// Clusters above Table	
           for (size_t i = 0; i < abovePlaneClusterSet.size(); i++) {
 		  pc1.points.clear();	
 		  pc1.header.frame_id = std::string("/base_link");
@@ -230,9 +226,6 @@ public:
 		point32.x = abovePlaneClusterSet.at(i).points.at(j).x;
 		point32.y = abovePlaneClusterSet.at(i).points.at(j).y;
 		point32.z = abovePlaneClusterSet.at(i).points.at(j).z;
-		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
-		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
-		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
 
 		pc1.points.push_back(point32);
 
@@ -242,7 +235,6 @@ public:
 
            }
 
-//////////////// Clusters on Table
 	   for (size_t i = 0; i < onPlaneClusterSet.size(); i++) {
 		  pc1.points.clear();	
 		  pc1.header.frame_id = std::string("/base_link");
@@ -252,9 +244,6 @@ public:
 		point32.x = onPlaneClusterSet.at(i).points.at(j).x;
 		point32.y = onPlaneClusterSet.at(i).points.at(j).y;
 		point32.z = onPlaneClusterSet.at(i).points.at(j).z;
-		//pc1.r = abovePlaneClusterSet.at(i).points.at(j).r;
-		//pc1.g = abovePlaneClusterSet.at(i).points.at(j).g;
-		//pc1.b = abovePlaneClusterSet.at(i).points.at(j).b;
 
 		pc1.points.push_back(point32);
               }
@@ -265,7 +254,7 @@ public:
 	  res.result = 4; //SUCCESS
 	  return true;
 	}
-
+*/
 
 
 //*******************************************************
@@ -559,27 +548,14 @@ void reconfigureVariables(sushi_kinect::ParametersConfig &config, uint32_t level
 	/********************************************************************/
 	void siftExample(cv_bridge::CvImagePtr& cv_ptr)
 	{
-		//    const cv::Mat input = cv::imread("input.jpg", 0); //Load as grayscale
+		//cv::SiftFeatureDetector detector;
+		//std::vector<cv::KeyPoint> keypoints;
 
-		//const cv::Mat input = cv::imread("goldengate.jpg", 0); //Load as grayscale
+		//detector.detect(cv_ptr->image, keypoints);
 
-		cv::SiftFeatureDetector detector;
-		std::vector<cv::KeyPoint> keypoints;
+		//std::cerr << "Num of Sift Features: " << keypoints.size() << std::endl;
 
-		//detector.detect(input, keypoints);
-
-		detector.detect(cv_ptr->image, keypoints);
-
-
-		// Add results to image and save.
-		//cv::Mat output;
-
-		std::cerr << "Num of Sift Features: " << keypoints.size() << std::endl;
-		//    cv::drawKeypoints(input, keypoints, output);
-
-		cv::drawKeypoints(cv_ptr->image, keypoints, cv_ptr->image);
-
-		//cv::imwrite("sift_result.jpg", output);
+		//cv::drawKeypoints(cv_ptr->image, keypoints, cv_ptr->image);
 
 	}
 

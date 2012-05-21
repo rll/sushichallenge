@@ -16,7 +16,6 @@
   <depend package="pcl"/>
   <depend package="pcl_ros"/>
   <depend package="tf"/>
-  <depend package="tabletop_object_detector"/>
 </package>
 
 
